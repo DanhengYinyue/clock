@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>时钟完整版（嵌入版）</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            position: relative;
+            background: #000;
+        }
+
+        iframe {
+            border: 0;
+            background: transparent;
+        }
+
+        .layer-stars,
+        .layer-clock {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .layer-stars { z-index: 1; }
+        .layer-clock { z-index: 2; }
+
+        .layer-sync {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            width: 430px;
+            height: 250px;
+            z-index: 4;
+        }
+
+        .layer-theme {
+            position: fixed;
+            right: 28px;
+            bottom: 28px;
+            width: 340px;
+            height: 160px;
+            z-index: 5;
+            overflow: visible;
+        }
+
+        @media (max-width: 768px) {
+            .layer-sync {
+                width: 320px;
+                height: 220px;
+            }
+
+            .layer-theme {
+                transform: scale(0.82);
+                transform-origin: right bottom;
+                right: 8px;
+                bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <iframe id="starsFrame" class="layer-stars" src="./星星.html" title="星星背景"></iframe>
+    <iframe id="clockFrame" class="layer-clock" src="./时间.html" title="时钟主体"></iframe>
+    <iframe id="syncFrame" class="layer-sync" src="./时间同步.html" title="时间同步"></iframe>
+    <iframe id="themeFrame" class="layer-theme" src="./昼夜切换按钮.html" title="昼夜切换按钮"></iframe>
+
+    <script>
+        const frames = {
+            stars: document.getElementById('starsFrame'),
+            clock: document.getElementById('clockFrame'),
+            sync: document.getElementById('syncFrame'),
+            theme: document.getElementById('themeFrame')
+        };
+
+        let syncedDisplayValue = '000000';
+
+        function waitFrameLoad(frame) {
+            return new Promise((resolve) => {
+                if (frame.contentDocument && frame.contentDocument.readyState === 'complete') {
+                    resolve();
+                    return;
+                }
+                frame.addEventListener('load', () => resolve(), { once: true });
+            });
+        }
+
+        function formatClockDigits(clockTime) {
+            const date = new Date(clockTime);
+            if (Number.isNaN(date.getTime())) return null;
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mm = String(date.getMinutes()).padStart(2, '0');
+            const ss = String(date.getSeconds()).padStart(2, '0');
+            return `${hh}${mm}${ss}`;
+        }
+
+        function makeFrameBackgroundTransparent(frame) {
+            const doc = frame.contentDocument;
+            if (!doc || !doc.body) return;
+            doc.body.style.background = 'transparent';
+        }
+
+        function setAllFramesMode(mode) {
+            const windows = [
+                frames.stars.contentWindow,
+                frames.clock.contentWindow,
+                frames.sync.contentWindow
+            ];
+
+            windows.forEach((win) => {
+                if (!win) return;
+                if (typeof win.setDayNightMode === 'function') {
+                    win.setDayNightMode(mode);
+                } else if (typeof win.toggleDayNightMode === 'function') {
+                    const current = typeof win.getCurrentDayNightMode === 'function'
+                        ? win.getCurrentDayNightMode()
+                        : 'night';
+                    if (current !== mode) {
+                        win.toggleDayNightMode();
+                    }
+                }
+            });
+
+            document.body.style.background = mode === 'day' ? '#fff' : '#000';
+        }
+
+        function toggleAllFramesMode() {
+            const clockWin = frames.clock.contentWindow;
+            const current = (clockWin && typeof clockWin.getCurrentDayNightMode === 'function')
+                ? clockWin.getCurrentDayNightMode()
+                : 'night';
+            setAllFramesMode(current === 'day' ? 'night' : 'day');
+        }
+
+        async function updateSyncedTimeOnce() {
+            const syncWin = frames.sync.contentWindow;
+            if (!syncWin || typeof syncWin.fetchClockTime !== 'function') return;
+
+            try {
+                const data = await syncWin.fetchClockTime();
+                const digits = formatClockDigits(data && data.clockTime);
+                if (digits) {
+                    syncedDisplayValue = digits;
+                }
+            } catch (error) {
+                console.warn('从时间同步模块获取时间失败：', error);
+            }
+        }
+
+        async function init() {
+            await Promise.all([
+                waitFrameLoad(frames.stars),
+                waitFrameLoad(frames.clock),
+                waitFrameLoad(frames.sync),
+                waitFrameLoad(frames.theme)
+            ]);
+
+            makeFrameBackgroundTransparent(frames.clock);
+            makeFrameBackgroundTransparent(frames.sync);
+            makeFrameBackgroundTransparent(frames.theme);
+
+            const clockWin = frames.clock.contentWindow;
+            if (clockWin && typeof clockWin.setDisplayValueProvider === 'function') {
+                clockWin.setDisplayValueProvider(() => syncedDisplayValue);
+            }
+
+            const themeWin = frames.theme.contentWindow;
+            if (themeWin) {
+                themeWin.toggleDayNightMode = () => {
+                    toggleAllFramesMode();
+                };
+            }
+
+            await updateSyncedTimeOnce();
+            setInterval(updateSyncedTimeOnce, 1000);
+
+            setAllFramesMode('night');
+        }
+
+        init();
+    </script>
+</body>
+</html>
