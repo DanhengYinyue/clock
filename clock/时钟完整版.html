@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时钟完整版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode {
+            background: #ffffff;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            transition: opacity 0.7s ease, visibility 0s 0.7s;
+        }
+
+        body:not(.no-stars) .stars {
+            transition: opacity 0.7s ease, visibility 0s 0s;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: twinkle linear infinite;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode .star {
+            background: #000;
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+        }
+
+        .clock-container {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .time-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .separator {
+            font-size: 120px;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.4),
+                         0 0 10px rgba(255, 255, 255, 0.2),
+                         0 0 15px rgba(255, 255, 255, 0.1);
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .separator {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .flip-card {
+            position: relative;
+            width: 120px;
+            height: 180px;
+            perspective: 1000px;
+        }
+
+        .flip-card-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .card-top,
+        .card-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 5px;
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top,
+        body.day-mode .card-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+        }
+
+        .card-top {
+            top: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px 15px 0 0;
+            z-index: 2;
+            --shadow-strength: 1;
+            box-shadow:
+                0 0 calc(20px * var(--shadow-strength)) rgba(255, 255, 255, calc(0.1 * var(--shadow-strength))),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease, --shadow-strength 0.7s ease;
+        }
+
+        body.day-mode .card-top {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow:
+                0 2px calc(10px * var(--shadow-strength)) rgba(0, 0, 0, calc(0.3 * var(--shadow-strength))),
+                inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 - 通过数值控制而非规则替换 */
+        body.no-clock-shadow .card-top {
+            --shadow-strength: 0;
+        }
+
+        .card-bottom {
+            bottom: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 15px 15px;
+            z-index: 0;
+            --shadow-strength: 1;
+            box-shadow:
+                0 0 calc(20px * var(--shadow-strength)) rgba(255, 255, 255, calc(0.1 * var(--shadow-strength))),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease, --shadow-strength 0.7s ease;
+        }
+
+        body.day-mode .card-bottom {
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow:
+                0 2px calc(10px * var(--shadow-strength)) rgba(0, 0, 0, calc(0.3 * var(--shadow-strength))),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 - 通过数值控制而非规则替换 */
+        body.no-clock-shadow .card-bottom {
+            --shadow-strength: 0;
+        }
+
+        /* 简单模式（关闭光影效果时） */
+        body.simple-mode .card-top,
+        body.simple-mode .card-bottom,
+        body.simple-mode .flip-top,
+        body.simple-mode .flip-bottom {
+            box-shadow: none !important;
+        }
+
+        body.simple-mode .card-top-num,
+        body.simple-mode .card-bottom-num,
+        body.simple-mode .flip-top-num,
+        body.simple-mode .flip-bottom-num,
+        body.simple-mode .separator {
+            text-shadow: none !important;
+        }
+
+        .card-top-num,
+        .card-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top-num,
+        body.day-mode .card-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 数字高光关闭时（静态数字） */
+        body.no-number-glow .card-top-num,
+        body.no-number-glow .card-bottom-num {
+            text-shadow: none !important;
+        }
+
+        body.day-mode.no-number-glow .card-top-num,
+        body.day-mode.no-number-glow .card-bottom-num {
+            text-shadow: none !important;
+        }
+
+        .card-top-num {
+            top: 0;
+        }
+
+        .card-bottom-num {
+            top: -90px;
+        }
+
+        .flip-top,
+        .flip-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            backface-visibility: hidden;
+        }
+
+        .flip-top {
+            top: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 15px 15px 0 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: bottom;
+            z-index: 3;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 */
+        body.no-clock-shadow .flip-top {
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.day-mode.no-clock-shadow .flip-top {
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .flip-bottom {
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 0 0 15px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: top;
+            z-index: 1;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 */
+        body.no-clock-shadow .flip-bottom {
+            box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.day-mode.no-clock-shadow .flip-bottom {
+            box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .flip-top-num,
+        .flip-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top-num,
+        body.day-mode .flip-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 数字高光关闭时 */
+        body.no-number-glow .flip-top-num,
+        body.no-number-glow .flip-bottom-num {
+            text-shadow: none !important;
+        }
+
+        body.day-mode.no-number-glow .flip-top-num,
+        body.day-mode.no-number-glow .flip-bottom-num {
+            text-shadow: none !important;
+        }
+
+        .flip-top-num {
+            top: 0;
+        }
+
+        .flip-bottom-num {
+            top: -90px;
+        }
+
+        .flip-card.flipping .flip-top {
+            animation: flipDown 0.5s ease-in forwards;
+        }
+
+        .flip-card.flipping .flip-bottom {
+            animation: flipUp 0.5s ease-out 0.5s forwards;
+            transform: rotateX(90deg);
+        }
+
+        @keyframes flipDown {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(-90deg);
+            }
+        }
+
+        @keyframes flipUp {
+            0% {
+                transform: rotateX(90deg);
+            }
+            100% {
+                transform: rotateX(0deg);
+            }
+        }
+
+        .label {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 300;
+            transition: color 0.7s ease;
+        }
+
+        body.day-mode .label {
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        .ampm-container {
+            position: absolute;
+            top: calc(100% + 50px);
+            text-align: center;
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            transition: color 0.7s ease, text-shadow 0.7s ease, opacity 0.7s ease, transform 0.7s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.day-mode .ampm-container {
+            color: rgba(0, 0, 0, 0.7);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #ampm {
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            display: inline-block;
+        }
+
+        body.no-stars .stars {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        body.simple-mode .card-top,
+        body.simple-mode .card-bottom,
+        body.simple-mode .flip-top,
+        body.simple-mode .flip-bottom {
+            box-shadow: none !important;
+        }
+
+        body.simple-mode .card-top-num,
+        body.simple-mode .card-bottom-num,
+        body.simple-mode .flip-top-num,
+        body.simple-mode .flip-bottom-num,
+        body.simple-mode .separator {
+            text-shadow: none !important;
+        }
+
+        .control-panel {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 1000;
+            transform-origin: bottom left;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 控件隐藏时，除了显示控件开关，其他都隐藏 */
+        body.controls-hidden .control-panel .toggle-button:not(.show-controls-toggle) {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 为control-panel中的toggle-button添加过渡 */
+        .control-panel .toggle-button {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s ease, visibility 0.5s ease, transform 0.5s ease;
+        }
+
+        /* 显示控件开关关闭后移到最下面 */
+        body.controls-hidden .control-panel {
+            flex-direction: column-reverse;
+        }
+
+        /* 超小尺寸时隐藏显示控件开关本身 */
+        body.ultra-small .control-panel .show-controls-toggle {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 控件隐藏时其他所有UI元素也隐藏 */
+        body.controls-hidden .navigation,
+        body.controls-hidden .theme-toggle-container,
+        body.controls-hidden .settings-fab,
+        body.controls-hidden .settings-pop,
+        body.controls-hidden .sync-reload-container,
+        body.controls-hidden .info-panel,
+        body.controls-hidden .notification,
+        body.controls-hidden .timer-controls,
+        body.controls-hidden .countdown-input-section {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* === 统一 UI 显隐动画（不破坏原 transform） === */
+        .navigation,
+        .theme-toggle-container,
+        .settings-fab {
+            transition:
+                opacity 0.4s ease,
+                visibility 0s linear 0.4s;
+        }
+
+        body.controls-hidden .navigation,
+        body.controls-hidden .theme-toggle-container,
+        body.controls-hidden .settings-fab {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        body:not(.controls-hidden) .navigation,
+        body:not(.controls-hidden) .theme-toggle-container,
+        body:not(.controls-hidden) .settings-fab {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .toggle-button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(45, 45, 45, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(0) scale(1);
+        }
+
+        body.day-mode .toggle-button {
+            background: #f5f5f5;
+            border: 1px solid #f7f7f7;
+        }
+
+        .toggle-button:hover {
+            background: rgba(45, 45, 45, 1);
+            transform: translateY(-2px);
+        }
+
+        body.day-mode .toggle-button:hover {
+            background: #f2f2f2;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            user-select: none;
+            transition: color 0.7s ease;
+        }
+
+        body.day-mode .toggle-label {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 20px;
+            background: #555;
+            border-radius: 10px;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        body.day-mode .toggle-switch {
+            background: #d0d0d0;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+
+        body.day-mode .toggle-switch::after {
+            background: #666;
+        }
+
+        .toggle-switch.active {
+            background: #2d2d2d;
+        }
+
+        body.day-mode .toggle-switch.active {
+            background: #c0c0c0;
+        }
+
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+
+        /* 主题切换按钮样式 */
+        .theme-toggle-container {
+            position: fixed;
+            top: 50px;
+            right: 80px;
+            z-index: 1000;
+            transform-origin: top right;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.5s ease,
+                        visibility 0.5s ease;
+        }
+
+        /* 主题按钮的Web Component容器 */
+        theme-button {
+            display: block;
+        }
+
+        /* ================= 右下角设置按钮 ================= */
+        .settings-fab {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            z-index: 1400;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.7s ease,
+                        opacity 0.5s ease,
+                        visibility 0.5s ease;
+        }
+
+        .settings-fab:hover {
+            transform: rotate(45deg) scale(1.08);
+        }
+
+        .settings-fab svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .settings-fab path {
+            fill: #fff;
+            transition: fill 0.7s ease;
+        }
+
+        body.day-mode .settings-fab {
+            background: rgba(255, 255, 255, 0.75);
+        }
+
+        body.day-mode .settings-fab path {
+            fill: #000;
+        }
+
+        /* ================= 设置弹出面板 ================= */
+        .settings-pop {
+            position: fixed;
+            right: 88px;
+            bottom: 88px;
+            width: 320px;
+            padding: 20px 22px;
+            border-radius: 18px;
+            background: rgba(28, 28, 28, 0.96);
+            backdrop-filter: blur(14px);
+            color: #fff;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            transform-origin: bottom right;
+            transform: scale(0.15);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.5s ease,
+                        visibility 0.5s ease,
+                        background 0.7s ease,
+                        color 0.7s ease;
+            z-index: 1500;
+        }
+
+        .settings-pop.open {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        body.day-mode .settings-pop {
+            background: rgba(245, 245, 245, 0.96);
+            color: #000;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 18px;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            cursor: pointer;
+            opacity: 0.6;
+            user-select: none;
+            transition: opacity 0.3s ease;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .settings-item {
+            margin-bottom: 16px;
+        }
+
+        .settings-item label {
+            display: block;
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .effects-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .effect-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .effect-label {
+            font-size: 13px;
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+
+        .number-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            transition: background 0.7s ease, border 0.7s ease, color 0.7s ease;
+        }
+
+        .number-input:focus {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.day-mode .number-input {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: #000;
+        }
+
+        body.day-mode .number-input:focus {
+            border-color: rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        /* ================= 导航栏样式 ================= */
+        .navigation {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 4px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: inline-flex;
+            transform-origin: top center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        body.day-mode .navigation {
+            background: rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item {
+            min-width: 100px;
+            height: 40px;
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            padding: 0 20px;
+            margin-right: 4px;
+            border-radius: 20px;
+            user-select: none;
+        }
+
+        body.day-mode .nav-item {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .nav-item:last-child {
+            margin-right: 0;
+        }
+
+        .navigation input[type="radio"] {
+            display: none;
+        }
+
+        .navigation input[type="radio"]:checked + label {
+            color: white;
+        }
+
+        body.day-mode .navigation input[type="radio"]:checked + label {
+            color: black;
+        }
+
+        .nav-tracker {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 1;
+            position: absolute;
+            top: 4px;
+            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+        }
+
+        body.day-mode .nav-tracker {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-hover-tracker {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s ease;
+            z-index: 0;
+            top: 4px;
+            position: absolute;
+        }
+
+        body.day-mode .nav-hover-tracker {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        /* ================= 视图容器样式 ================= */
+        .main-view-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: -1;
+        }
+
+        .view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .view.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ================= 同步按钮样式 ================= */
+        .sync-reload-container {
+            position: fixed;
+            top: 50px;
+            right: 150px;
+            z-index: 1000;
+            transform-origin: top right;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sync-button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(45, 45, 45, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(0) scale(1);
+        }
+
+        body.day-mode .sync-button {
+            background: #f5f5f5;
+            border: 1px solid #f7f7f7;
+        }
+
+        .sync-button:hover {
+            background: rgba(45, 45, 45, 1);
+            transform: translateY(-2px);
+        }
+
+        body.day-mode .sync-button:hover {
+            background: #f2f2f2;
+        }
+
+        .sync-icon {
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sync-button.stopped .sync-icon {
+            animation: none;
+        }
+
+        .sync-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            user-select: none;
+            transition: color 0.7s ease;
+        }
+
+        body.day-mode .sync-label {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* ================= 信息面板 ================= */
+        .info-panel {
+            position: fixed;
+            top: 120px;
+            right: 30px;
+            width: 300px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            color: white;
+            z-index: 1000;
+            transform-origin: top right;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.day-mode .info-panel {
+            background: rgba(255, 255, 255, 0.7);
+            color: black;
+        }
+
+        .info-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .info-content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ================= 通知提示 ================= */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 15px 25px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 10px;
+            z-index: 2000;
+            transition: transform 0.5s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        body.day-mode .notification {
+            background: rgba(255, 255, 255, 0.8);
+            color: black;
+        }
+
+        /* ================= 计时器控制 ================= */
+        .timer-controls {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 1000;
+            transform-origin: bottom right;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .timer-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(45, 45, 45, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .timer-btn:hover {
+            background: rgba(45, 45, 45, 1);
+            transform: scale(1.1);
+        }
+
+        body.day-mode .timer-btn {
+            background: #f5f5f5;
+            color: black;
+            border: 1px solid #f7f7f7;
+        }
+
+        body.day-mode .timer-btn:hover {
+            background: #f2f2f2;
+        }
+
+        /* ================= 倒计时输入 ================= */
+        .countdown-input-section {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 300px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            color: white;
+            z-index: 1600;
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .countdown-input-section.active {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        body.day-mode .countdown-input-section {
+            background: rgba(255, 255, 255, 0.9);
+            color: black;
+        }
+
+        .countdown-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+        }
+
+        body.day-mode .countdown-input {
+            background: rgba(0, 0, 0, 0.1);
+            color: black;
+            border: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+        .countdown-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .close-countdown {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        body.day-mode .close-countdown {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <!-- 星空背景 -->
+    <div class="stars" id="stars"></div>
+
+    <!-- 时钟容器 -->
+    <div class="clock-container">
+        <div class="time-group">
+            <!-- 小时十位 -->
+            <div class="flip-card" id="hour-tens">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+                <div class="label">时</div>
+            </div>
+            
+            <!-- 小时个位 -->
+            <div class="flip-card" id="hour-ones">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="separator">:</div>
+        
+        <div class="time-group">
+            <!-- 分钟十位 -->
+            <div class="flip-card" id="minute-tens">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+                <div class="label">分</div>
+            </div>
+            
+            <!-- 分钟个位 -->
+            <div class="flip-card" id="minute-ones">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="separator">:</div>
+        
+        <div class="time-group">
+            <!-- 秒十位 -->
+            <div class="flip-card" id="second-tens">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+                <div class="label">秒</div>
+            </div>
+            
+            <!-- 秒个位 -->
+            <div class="flip-card" id="second-ones">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                    <div class="flip-top">
+                        <div class="flip-top-num">0</div>
+                    </div>
+                    <div class="flip-bottom">
+                        <div class="flip-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AM/PM 显示 -->
+    <div class="ampm-container">
+        <span id="ampm">AM</span>
+    </div>
+
+    <!-- 昼夜切换按钮 -->
+    <div class="theme-toggle-container">
+        <button class="toggle-button" id="themeToggle">
+            <span class="toggle-label">昼夜切换</span>
+            <div class="toggle-switch" id="themeSwitch"></div>
+        </button>
+    </div>
+
+    <!-- 时间同步按钮 -->
+    <div class="sync-reload-container">
+        <div class="sync-button" id="syncButton">
+            <svg class="sync-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+            </svg>
+            <span class="sync-label">同步时间</span>
+        </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <div class="toggle-button">
+            <span class="toggle-label">星空效果</span>
+            <div class="toggle-switch active" id="starsToggle"></div>
+        </div>
+        <div class="toggle-button">
+            <span class="toggle-label">时钟阴影</span>
+            <div class="toggle-switch active" id="shadowToggle"></div>
+        </div>
+        <div class="toggle-button">
+            <span class="toggle-label">数字高光</span>
+            <div class="toggle-switch active" id="glowToggle"></div>
+        </div>
+        <div class="toggle-button">
+            <span class="toggle-label">简单模式</span>
+            <div class="toggle-switch" id="simpleModeToggle"></div>
+        </div>
+        <div class="toggle-button">
+            <span class="toggle-label">显示控件</span>
+            <div class="toggle-switch active" id="controlsToggle"></div>
+        </div>
+    </div>
+
+    <!-- 设置按钮 -->
+    <div class="settings-fab" id="settingsFab">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="settings-pop" id="settingsPop">
+        <div class="settings-header">
+            <span>设置</span>
+            <div class="close-btn" id="closeSettings">&times;</div>
+        </div>
+        <div class="settings-item">
+            <label>时钟大小</label>
+            <input type="range" id="clockSizeSlider" min="0.5" max="2" step="0.1" value="1">
+        </div>
+        <div class="settings-item">
+            <label>星空数量</label>
+            <input type="range" id="starCountSlider" min="50" max="500" step="10" value="200">
+        </div>
+        <div class="settings-item">
+            <label>翻牌速度</label>
+            <input type="range" id="flipSpeedSlider" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div class="notification" id="notification">时间已同步</div>
+
+    <script>
+        // 时间显示相关变量
+        let hourTensElement = document.getElementById('hour-tens');
+        let hourOnesElement = document.getElementById('hour-ones');
+        let minuteTensElement = document.getElementById('minute-tens');
+        let minuteOnesElement = document.getElementById('minute-ones');
+        let secondTensElement = document.getElementById('second-tens');
+        let secondOnesElement = document.getElementById('second-ones');
+        let ampmElement = document.getElementById('ampm');
+        
+        // 当前时间状态
+        let currentTime = new Date();
+        
+        // 星空相关
+        const starsContainer = document.getElementById('stars');
+        
+        // 创建星空
+        function createStars() {
+            const starCount = parseInt(document.getElementById('starCountSlider').value) || 200;
+            starsContainer.innerHTML = '';
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                
+                // 随机位置
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                star.style.left = `${x}%`;
+                star.style.top = `${y}%`;
+                
+                // 随机动画延迟和持续时间
+                const duration = 2 + Math.random() * 3;
+                const delay = Math.random() * 5;
+                star.style.animationDuration = `${duration}s`;
+                star.style.animationDelay = `${delay}s`;
+                
+                // 随机大小
+                const size = 1 + Math.random() * 3;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // 更新时间显示
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            
+            // 计算小时的十位和个位
+            const hourTens = Math.floor(hours / 10);
+            const hourOnes = hours % 10;
+            
+            // 计算分钟的十位和个位
+            const minuteTens = Math.floor(minutes / 10);
+            const minuteOnes = minutes % 10;
+            
+            // 计算秒的十位和个位
+            const secondTens = Math.floor(seconds / 10);
+            const secondOnes = seconds % 10;
+            
+            // 更新AM/PM
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            ampmElement.textContent = ampm;
+            
+            // 更新显示
+            updateDigit(hourTensElement, hourTens);
+            updateDigit(hourOnesElement, hourOnes);
+            updateDigit(minuteTensElement, minuteTens);
+            updateDigit(minuteOnesElement, minuteOnes);
+            updateDigit(secondTensElement, secondTens);
+            updateDigit(secondOnesElement, secondOnes);
+        }
+        
+        // 更新单个数字显示
+        function updateDigit(element, newValue) {
+            const currentValue = parseInt(element.querySelector('.card-top-num').textContent);
+            
+            if (currentValue !== newValue) {
+                // 添加翻转动画类
+                element.classList.add('flipping');
+                
+                // 更新底部数字为当前值
+                element.querySelector('.flip-bottom-num').textContent = currentValue;
+                
+                // 更新顶部数字为新值
+                element.querySelector('.card-top-num').textContent = newValue;
+                
+                // 更新翻转部分的数字
+                element.querySelector('.flip-top-num').textContent = newValue;
+                
+                // 动画结束后移除类
+                setTimeout(() => {
+                    element.classList.remove('flipping');
+                    
+                    // 更新底部数字为新值
+                    element.querySelector('.card-bottom-num').textContent = newValue;
+                }, 500);
+            }
+        }
+        
+        // 切换昼夜模式
+        function toggleTheme() {
+            document.body.classList.toggle('day-mode');
+            const switchElement = document.getElementById('themeSwitch');
+            switchElement.classList.toggle('active');
+        }
+        
+        // 同步时间
+        function syncTime() {
+            // 显示同步动画
+            const syncIcon = document.querySelector('.sync-icon');
+            syncIcon.parentElement.classList.remove('stopped');
+            
+            // 模拟网络请求延迟
+            setTimeout(() => {
+                // 获取当前网络时间（这里使用本地时间作为示例）
+                const networkTime = new Date();
+                
+                // 更新当前时间
+                currentTime = networkTime;
+                
+                // 隐藏同步动画
+                syncIcon.parentElement.classList.add('stopped');
+                
+                // 显示通知
+                showNotification('时间已同步');
+                
+                // 更新显示
+                updateTime();
+            }, 1000);
+        }
+        
+        // 显示通知
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 初始化页面
+        function init() {
+            // 创建星空
+            createStars();
+            
+            // 设置初始时间
+            updateTime();
+            
+            // 每秒更新一次时间
+            setInterval(updateTime, 1000);
+            
+            // 绑定事件监听器
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+            document.getElementById('syncButton').addEventListener('click', syncTime);
+            
+            // 设置面板相关事件
+            document.getElementById('settingsFab').addEventListener('click', () => {
+                document.getElementById('settingsPop').classList.add('open');
+            });
+            
+            document.getElementById('closeSettings').addEventListener('click', () => {
+                document.getElementById('settingsPop').classList.remove('open');
+            });
+            
+            // 监听星空数量滑块变化
+            document.getElementById('starCountSlider').addEventListener('input', createStars);
+            
+            // 监听时钟大小滑块变化
+            document.getElementById('clockSizeSlider').addEventListener('input', (e) => {
+                const scale = parseFloat(e.target.value);
+                document.querySelector('.clock-container').style.transform = `scale(${scale})`;
+            });
+            
+            // 监听翻牌速度滑块变化
+            document.getElementById('flipSpeedSlider').addEventListener('input', (e) => {
+                const speed = parseFloat(e.target.value);
+                const style = document.createElement('style');
+                style.id = 'flip-speed-style';
+                style.textContent = `
+                    .flip-card.flipping .flip-top {
+                        animation-duration: ${speed}s;
+                        animation-timing-function: ease-in;
+                    }
+                    
+                    .flip-card.flipping .flip-bottom {
+                        animation-duration: ${speed}s;
+                        animation-delay: ${speed}s;
+                        animation-timing-function: ease-out;
+                    }
+                    
+                    @keyframes flipDown {
+                        0% { transform: rotateX(0deg); }
+                        100% { transform: rotateX(-90deg); }
+                    }
+                    
+                    @keyframes flipUp {
+                        0% { transform: rotateX(90deg); }
+                        100% { transform: rotateX(0deg); }
+                    }
+                `;
+                
+                // 移除旧样式并添加新样式
+                const oldStyle = document.getElementById('flip-speed-style');
+                if (oldStyle) oldStyle.remove();
+                document.head.appendChild(style);
+            });
+            
+            // 控制面板开关事件
+            document.getElementById('starsToggle').addEventListener('click', function() {
+                this.querySelector('.toggle-switch').classList.toggle('active');
+                document.body.classList.toggle('no-stars');
+            });
+            
+            document.getElementById('shadowToggle').addEventListener('click', function() {
+                this.querySelector('.toggle-switch').classList.toggle('active');
+                document.body.classList.toggle('no-clock-shadow');
+            });
+            
+            document.getElementById('glowToggle').addEventListener('click', function() {
+                this.querySelector('.toggle-switch').classList.toggle('active');
+                document.body.classList.toggle('no-number-glow');
+            });
+            
+            document.getElementById('simpleModeToggle').addEventListener('click', function() {
+                this.querySelector('.toggle-switch').classList.toggle('active');
+                document.body.classList.toggle('simple-mode');
+            });
+            
+            document.getElementById('controlsToggle').addEventListener('click', function() {
+                this.querySelector('.toggle-switch').classList.toggle('active');
+                document.body.classList.toggle('controls-hidden');
+            });
+        }
+        
+        // 页面加载完成后初始化
+        window.onload = init;
+    </script>
+</body>
+</html>

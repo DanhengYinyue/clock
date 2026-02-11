@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间同步</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body.day-mode {
+            background: #ffffff;
+        }
+
+        .sync-reload-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1100;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: background 0.7s ease, color 0.7s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        body.day-mode .sync-status {
+            background: rgba(255, 255, 255, 0.8);
+            color: black;
+        }
+
+        .sync-status:hover {
+            background: rgba(0, 0, 0, 0.85);
+        }
+
+        body.day-mode .sync-status:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .sync-success {
+            background-color: #4CAF50;
+        }
+
+        .sync-error {
+            background-color: #F44336;
+        }
+
+        .sync-pending {
+            background-color: #FFC107;
+        }
+
+        .reload-button {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.7s ease;
+        }
+
+        body.day-mode .reload-button {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .reload-button:hover {
+            background: rgba(0, 0, 0, 0.85);
+            transform: translateY(-2px) rotate(180deg);
+        }
+
+        body.day-mode .reload-button:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .reload-button svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .reload-button path {
+            fill: rgba(255, 255, 255, 0.9);
+            transition: fill 0.7s ease;
+        }
+
+        body.day-mode .reload-button path {
+            fill: rgba(0, 0, 0, 0.8);
+        }
+
+        .reload-button:active {
+            transform: scale(0.95);
+        }
+
+        .reload-button.reloading svg {
+            animation: reloadSpin 0.6s ease-in-out;
+        }
+
+        @keyframes reloadSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 999;
+            max-width: 300px;
+            transition: opacity 0.3s ease, visibility 0.3s ease, background 0.7s ease, color 0.7s ease;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .info-panel.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        body.day-mode .info-panel {
+            background: rgba(255, 255, 255, 0.9);
+            color: black;
+        }
+
+        .info-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 5px;
+        }
+
+        body.day-mode .info-panel h3 {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+        }
+
+        .last-sync-time {
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .sync-interval-info {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        body.day-mode .sync-interval-info {
+            border-top: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+    </style>
+</head>
+<body class="twentyfour-mode">
+    <!-- 同步和重新加载按钮容器 -->
+    <div class="sync-reload-container">
+        <!-- 时间同步状态栏 -->
+        <div class="sync-status" id="syncStatus">
+            <span class="sync-indicator sync-pending" id="syncIndicator"></span>
+            <span id="syncText">正在同步时间...</span>
+        </div>
+
+        <!-- 重新加载时钟按钮 -->
+        <div class="reload-button" id="reloadButton" title="重新加载时钟">
+            <svg viewBox="0 0 24 24">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- 时间同步信息面板 -->
+    <div class="info-panel" id="infoPanel">
+        <h3>时间同步信息</h3>
+        <p>本地时间: <span id="localTime">--:--:--</span></p>
+        <p>网络时间: <span id="networkTime">--:--:--</span></p>
+        <p>时钟时间: <span id="clockTime">--:--:--</span></p>
+        <p>时间差: <span id="timeDiff">-- ms</span></p>
+        <p class="last-sync-time">上次同步: <span id="lastSyncTime">从未同步</span></p>
+        <div class="sync-interval-info">
+            同步间隔: 10分钟<br>
+            <span id="nextSyncIn">下次同步: -- 秒后</span>
+        </div>
+    </div>
+
+
+    <script>
+        // ========== 昼夜模式切换函数 ==========
+        function toggleDayNightMode() {
+            const body = document.body;
+            if (body.classList.contains('day-mode')) {
+                // 当前是白天模式，切换到夜间模式
+                body.classList.remove('day-mode');
+            } else {
+                // 当前是夜间模式，切换到白天模式
+                body.classList.add('day-mode');
+            }
+        }
+        
+        // 获取当前模式
+        function getCurrentDayNightMode() {
+            return document.body.classList.contains('day-mode') ? 'day' : 'night';
+        }
+        
+        // 设置特定模式 ('day' 或 'night')
+        function setDayNightMode(mode) {
+            const body = document.body;
+            if (mode === 'day') {
+                body.classList.add('day-mode');
+            } else if (mode === 'night') {
+                body.classList.remove('day-mode');
+            }
+        }
+
+        // ========== 时间同步功能 ==========
+        // 说明：
+        // - “是否同步完成/是否正在同步”的判断，统一通过 /time 返回的
+        //   nextSyncRemaining（即 nextSyncInMinutes/Seconds 组合）是否“重置为 10 分钟”来确认。
+        // - 手动同步：点击后立刻进入“正在同步…”，等待 remainingMs 重置到 ~10min 再标记成功。
+        // - 自动同步：remainingMs 临近 0 视为“自动同步中…”，重置到 ~10min 视为完成。
+        const AUTO_SYNC_INTERVAL_MS = 10 * 60 * 1000;
+
+        let lastSyncTime = null;       // 最近一次确认同步完成时间
+        let lastTimeDiff = null;       // 最近一次确认同步完成时的 offset(ms)
+        let syncStatus = 'pending';    // 'pending' | 'success' | 'error'
+
+        let lastClickTime = 0;
+        const SYNC_CLICK_COOLDOWN = 5000; // 5秒冷却时间
+
+        // 同步确认（靠 remainingMs 是否回到 10 分钟）
+        let waitingSyncConfirm = false;    // 手动同步发起后，等待服务端计时器重置
+        let prevRemainingMs = null;        // 用于检测“倒计时跳回 10 分钟”
+
+
+        // 时间服务配置
+        const TIME_API = 'http://localhost:3000/time';
+        const SYNC_API = 'http://localhost:3000/sync';
+
+        // 更新同步状态显示
+        function updateSyncStatus(status, message) {
+            const syncIndicator = document.getElementById('syncIndicator');
+            const syncText = document.getElementById('syncText');
+
+            syncStatus = status;
+            syncText.textContent = message;
+
+            syncIndicator.className = 'sync-indicator';
+            if (status === 'success') {
+                syncIndicator.classList.add('sync-success');
+            } else if (status === 'error') {
+                syncIndicator.classList.add('sync-error');
+            } else {
+                syncIndicator.classList.add('sync-pending');
+            }
+        }
+
+        // 更新信息面板（每秒）
+        async function updateInfoPanel() {
+            // 先把“上次同步”按当前状态刷新出来（避免网络慢时一直显示旧值）
+            const lastSyncStr = lastSyncTime
+                ? lastSyncTime.toLocaleString()
+                : (syncStatus === 'pending' ? '正在同步...' : '从未同步');
+            document.getElementById('lastSyncTime').textContent = lastSyncStr;
+
+            try {
+                const data = await fetchClockTime();
+
+                const localTime = new Date(data.localTime);
+                const networkTime = new Date(data.networkTime);
+                const clockTime = new Date(data.clockTime);
+
+                const timeDiffStr = (data.offset !== undefined)
+                    ? ((data.offset > 0 ? '+' : '') + Math.round(data.offset) + ' ms')
+                    : '-- ms';
+
+                // 统一从 /time 拿到的倒计时推断同步状态
+                const minutes = Number.isFinite(data.nextSyncInMinutes) ? data.nextSyncInMinutes : NaN;
+                const seconds = Number.isFinite(data.nextSyncInSeconds) ? data.nextSyncInSeconds : NaN;
+                const remainingMs = (Number.isFinite(minutes) && Number.isFinite(seconds))
+                    ? (minutes * 60000 + seconds * 1000)
+                    : null;
+
+                // 下次同步显示
+                const nextSyncStr = (data.nextSyncInMinutes !== undefined && data.nextSyncInSeconds !== undefined)
+                    ? `下次同步: ${data.nextSyncInMinutes}分${data.nextSyncInSeconds}秒后`
+                    : (data.nextSyncIn ? `下次同步: ${data.nextSyncIn}` : '下次同步: --');
+
+                // ① 自动同步即将发生：倒计时接近 0 时显示“自动同步中...”
+                if (
+                    remainingMs !== null &&
+                    remainingMs <= 2000 &&
+                    syncStatus !== 'pending' &&
+                    !waitingSyncConfirm
+                ) {
+                    updateSyncStatus('pending', '自动同步中...');
+                }
+
+                // ② 同步完成信号：倒计时回到 ~10分钟（服务端计时器重置）
+                const resetToFull = remainingMs !== null && remainingMs >= (AUTO_SYNC_INTERVAL_MS - 2000);
+                const wasNearZero = prevRemainingMs !== null && prevRemainingMs <= 3000;
+
+                // - 手动同步：只要 waitingSyncConfirm 且 resetToFull，就确认完成
+                // - 自动同步：wasNearZero 且 resetToFull，也确认完成
+                if (resetToFull && (waitingSyncConfirm || wasNearZero)) {
+                    waitingSyncConfirm = false;
+                    lastSyncTime = new Date();
+                    lastTimeDiff = data.offset;
+
+                    updateSyncStatus(
+                        'success',
+                        `已同步 (${lastTimeDiff > 0 ? '+' : ''}${Math.round(lastTimeDiff)}ms)`
+                    );
+                }
+
+                // ③ 首次成功拿到数据：如果还没有 lastSyncTime，就初始化为“已同步”
+                if (!lastSyncTime && data.offset !== undefined) {
+                    lastSyncTime = new Date();
+                    lastTimeDiff = data.offset;
+                    updateSyncStatus(
+                        'success',
+                        `已同步 (${lastTimeDiff > 0 ? '+' : ''}${Math.round(lastTimeDiff)}ms)`
+                    );
+                }
+
+                // 写入面板 UI
+                document.getElementById('localTime').textContent =
+                    localTime.toLocaleTimeString('zh-CN', { hour12: false });
+                document.getElementById('networkTime').textContent =
+                    networkTime.toLocaleTimeString('zh-CN', { hour12: false });
+                document.getElementById('clockTime').textContent =
+                    clockTime.toLocaleTimeString('zh-CN', { hour12: false });
+                document.getElementById('timeDiff').textContent = timeDiffStr;
+                document.getElementById('lastSyncTime').textContent = lastSyncTime
+                    ? lastSyncTime.toLocaleString()
+                    : (syncStatus === 'pending' ? '正在同步...' : '从未同步');
+                document.getElementById('nextSyncIn').textContent = nextSyncStr;
+
+                prevRemainingMs = remainingMs;
+            } catch (e) {
+                console.error('更新信息面板失败:', e);
+                document.getElementById('localTime').textContent = '--:--:--';
+                document.getElementById('networkTime').textContent = '--:--:--';
+                document.getElementById('clockTime').textContent = '--:--:--';
+                document.getElementById('timeDiff').textContent = '-- ms';
+
+                // 检查是否是超时错误
+                if (e.message === '请求超时') {
+                    document.getElementById('lastSyncTime').textContent = '请求超时';
+                    document.getElementById('nextSyncIn').textContent = '下次同步: --';
+                    updateSyncStatus('error', '请求超时');
+                } else {
+                    document.getElementById('lastSyncTime').textContent = '时间服务断开';
+                    document.getElementById('nextSyncIn').textContent = '下次同步: --';
+
+                    // 如果获取数据失败，更新状态为错误
+                    updateSyncStatus('error', '时间服务断开');
+                }
+            }
+        }
+
+        // 获取 Node.js 时间
+        async function fetchClockTime() {
+            // 创建一个带超时的 fetch 请求
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+            
+            try {
+                const res = await fetch(TIME_API, { 
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (!res.ok) throw new Error('时间服务不可用');
+                return await res.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('请求超时');
+                }
+                throw error;
+            }
+        }
+
+        // 核心同步函数（用于手动同步按钮）
+        async function doSyncTime() {
+            try {
+                const res = await fetch(SYNC_API, { method: 'POST' });
+                const result = await res.json();
+
+                if (!result.ok) throw new Error(result.error || '同步失败');
+                // ✅ 不在这里直接判定“同步成功”，而是等待 /time 的 remainingMs 回到 10 分钟
+                // 这样能保证“上次同步时间”与左上角状态显示严格一致。
+                waitingSyncConfirm = true;
+                // 立刻刷新一次面板，尽快捕捉 reset 信号
+                updateInfoPanel();
+                return true;
+            } catch (e) {
+                console.error('时间同步失败:', e);
+                updateSyncStatus('error', '同步失败');
+                waitingSyncConfirm = false;
+                return false;
+            }
+        }
+
+        // 检查是否需要冷却
+        function checkCooldown() {
+            const now = Date.now();
+            if (now - lastClickTime < SYNC_CLICK_COOLDOWN) {
+                return true;
+            }
+            lastClickTime = now;
+            return false;
+        }
+
+        // 手动点击同步
+        function manualSync() {
+            if (checkCooldown()) {
+                // 显示冷却提示
+                showCooldownNotification();
+                return;
+            }
+
+            // 执行同步
+            updateSyncStatus('pending', '正在同步时间...');
+            waitingSyncConfirm = true;
+
+            doSyncTime().catch(() => {
+                waitingSyncConfirm = false;
+            });
+
+        }
+
+        // 显示冷却提示
+        function showCooldownNotification() {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 150px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #2b2b2b;
+                color: white;
+                padding: 15px 30px;
+                border-radius: 12px;
+                font-size: 18px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                z-index: 2000;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(10px);
+                opacity: 0;
+                transition: opacity 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            `;
+            
+            notification.textContent = '请稍后再获取';
+            document.body.appendChild(notification);
+
+            // 显示动画
+            setTimeout(() => {
+                notification.style.opacity = '1';
+            }, 50);
+
+            // 2秒后移除
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 600);
+            }, 2000);
+        }
+
+        // 重新加载时钟函数（刷新按钮）
+        function reloadClock() {
+            // 添加旋转动画
+            reloadButton.classList.add('reloading');
+
+            // 模拟刷新操作
+            setTimeout(() => {
+                reloadButton.classList.remove('reloading');
+            }, 600);
+        }
+
+        // 同步状态栏和信息面板交互
+        const syncStatusEl = document.getElementById('syncStatus');
+        const infoPanelEl = document.getElementById('infoPanel');
+
+        syncStatusEl.addEventListener('mouseenter', () => {
+            // 鼠标悬停时立即更新信息面板
+            updateInfoPanel();
+            infoPanelEl.classList.add('show');
+        });
+
+        syncStatusEl.addEventListener('mouseleave', () => {
+            infoPanelEl.classList.remove('show');
+        });
+
+        infoPanelEl.addEventListener('mouseenter', () => {
+            // 鼠标悬停时立即更新信息面板
+            updateInfoPanel();
+            infoPanelEl.classList.add('show');
+        });
+
+        infoPanelEl.addEventListener('mouseleave', () => {
+            infoPanelEl.classList.remove('show');
+        });
+
+        syncStatusEl.addEventListener('click', manualSync);
+
+        // 重新加载时钟按钮 - 简单防抖
+        let isReloading = false;
+        const reloadButton = document.getElementById('reloadButton');
+
+        reloadButton.addEventListener('click', () => {
+            // 防止快速重复点击
+            if (isReloading) return;
+
+            isReloading = true;
+
+            // 添加旋转动画
+            reloadButton.classList.add('reloading');
+
+            // 执行重新加载时钟
+            reloadClock();
+
+            // 动画结束后恢复状态
+            setTimeout(() => {
+                reloadButton.classList.remove('reloading');
+                isReloading = false;
+            }, 600);
+        });
+
+
+        // 初始化状态
+        updateSyncStatus('pending', '正在同步时间...');
+        updateInfoPanel(); // 立即更新面板显示等待状态
+        
+        // 每秒更新信息面板
+        setInterval(updateInfoPanel, 1000);
+        
+        // 页面可见性变化处理
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // 页面变为可见时，立即更新信息面板以检测自动同步
+                updateInfoPanel();
+            }
+        });
+
+        // 可用的昼夜模式切换函数：
+        // toggleDayNightMode() - 切换昼夜模式
+        // getCurrentDayNightMode() - 获取当前模式 ('day' 或 'night')
+        // setDayNightMode(mode) - 设置特定模式 ('day' 或 'night')
+    </script>
+</body>
+</html>

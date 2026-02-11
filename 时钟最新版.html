@@ -1,0 +1,4015 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时钟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode {
+            background: #ffffff;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            transition: opacity 0.7s ease, visibility 0s 0.7s;
+        }
+
+        body:not(.no-stars) .stars {
+            transition: opacity 0.7s ease, visibility 0s 0s;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: twinkle linear infinite;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode .star {
+            background: #000;
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+        }
+
+        .clock-container {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .time-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .separator {
+            font-size: 120px;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.4),
+                         0 0 10px rgba(255, 255, 255, 0.2),
+                         0 0 15px rgba(255, 255, 255, 0.1);
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .separator {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .flip-card {
+            position: relative;
+            width: 120px;
+            height: 180px;
+            perspective: 1000px;
+        }
+
+        .flip-card-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .card-top,
+        .card-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 5px;
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top,
+        body.day-mode .card-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+        }
+
+        .card-top {
+            top: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px 15px 0 0;
+            z-index: 2;
+            --shadow-strength: 1;
+            box-shadow:
+                0 0 calc(20px * var(--shadow-strength)) rgba(255, 255, 255, calc(0.1 * var(--shadow-strength))),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease, --shadow-strength 0.7s ease;
+        }
+
+        body.day-mode .card-top {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow:
+                0 2px calc(10px * var(--shadow-strength)) rgba(0, 0, 0, calc(0.3 * var(--shadow-strength))),
+                inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 - 通过数值控制而非规则替换 */
+        body.no-clock-shadow .card-top {
+            --shadow-strength: 0;
+        }
+
+        .card-bottom {
+            bottom: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 15px 15px;
+            z-index: 0;
+            --shadow-strength: 1;
+            box-shadow:
+                0 0 calc(20px * var(--shadow-strength)) rgba(255, 255, 255, calc(0.1 * var(--shadow-strength))),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease, --shadow-strength 0.7s ease;
+        }
+
+        body.day-mode .card-bottom {
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow:
+                0 2px calc(10px * var(--shadow-strength)) rgba(0, 0, 0, calc(0.3 * var(--shadow-strength))),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 - 通过数值控制而非规则替换 */
+        body.no-clock-shadow .card-bottom {
+            --shadow-strength: 0;
+        }
+
+        /* 简单模式（关闭光影效果时） */
+        body.simple-mode .card-top,
+        body.simple-mode .card-bottom,
+        body.simple-mode .flip-top,
+        body.simple-mode .flip-bottom {
+            box-shadow: none !important;
+        }
+
+        body.simple-mode .card-top-num,
+        body.simple-mode .card-bottom-num,
+        body.simple-mode .flip-top-num,
+        body.simple-mode .flip-bottom-num,
+        body.simple-mode .separator {
+            text-shadow: none !important;
+        }
+
+        .card-top-num,
+        .card-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top-num,
+        body.day-mode .card-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 数字高光关闭时（静态数字） */
+        body.no-number-glow .card-top-num,
+        body.no-number-glow .card-bottom-num {
+            text-shadow: none !important;
+        }
+
+        body.day-mode.no-number-glow .card-top-num,
+        body.day-mode.no-number-glow .card-bottom-num {
+            text-shadow: none !important;
+        }
+
+        .card-top-num {
+            top: 0;
+        }
+
+        .card-bottom-num {
+            top: -90px;
+        }
+
+        .flip-top,
+        .flip-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            backface-visibility: hidden;
+        }
+
+        .flip-top {
+            top: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 15px 15px 0 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: bottom;
+            z-index: 3;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 */
+        body.no-clock-shadow .flip-top {
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.day-mode.no-clock-shadow .flip-top {
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .flip-bottom {
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 0 0 15px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: top;
+            z-index: 1;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 时钟阴影关闭时 */
+        body.no-clock-shadow .flip-bottom {
+            box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.day-mode.no-clock-shadow .flip-bottom {
+            box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .flip-top-num,
+        .flip-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top-num,
+        body.day-mode .flip-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 数字高光关闭时 */
+        body.no-number-glow .flip-top-num,
+        body.no-number-glow .flip-bottom-num {
+            text-shadow: none !important;
+        }
+
+        body.day-mode.no-number-glow .flip-top-num,
+        body.day-mode.no-number-glow .flip-bottom-num {
+            text-shadow: none !important;
+        }
+
+        .flip-top-num {
+            top: 0;
+        }
+
+        .flip-bottom-num {
+            top: -90px;
+        }
+
+        .flip-card.flipping .flip-top {
+            animation: flipDown 0.5s ease-in forwards;
+        }
+
+        .flip-card.flipping .flip-bottom {
+            animation: flipUp 0.5s ease-out 0.5s forwards;
+            transform: rotateX(90deg);
+        }
+
+        @keyframes flipDown {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(-90deg);
+            }
+        }
+
+        @keyframes flipUp {
+            0% {
+                transform: rotateX(90deg);
+            }
+            100% {
+                transform: rotateX(0deg);
+            }
+        }
+
+        .label {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 300;
+            transition: color 0.7s ease;
+        }
+
+        body.day-mode .label {
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        .ampm-container {
+            position: absolute;
+            top: calc(100% + 50px);
+            text-align: center;
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            transition: color 0.7s ease, text-shadow 0.7s ease, opacity 0.7s ease, transform 0.7s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.day-mode .ampm-container {
+            color: rgba(0, 0, 0, 0.7);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #ampm {
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            display: inline-block;
+        }
+
+        body.no-stars .stars {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        body.simple-mode .card-top,
+        body.simple-mode .card-bottom,
+        body.simple-mode .flip-top,
+        body.simple-mode .flip-bottom {
+            box-shadow: none !important;
+        }
+
+        body.simple-mode .card-top-num,
+        body.simple-mode .card-bottom-num,
+        body.simple-mode .flip-top-num,
+        body.simple-mode .flip-bottom-num,
+        body.simple-mode .separator {
+            text-shadow: none !important;
+        }
+
+        .control-panel {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 1000;
+            transform-origin: bottom left;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 控件隐藏时，除了显示控件开关，其他都隐藏 */
+        body.controls-hidden .control-panel .toggle-button:not(.show-controls-toggle) {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 为control-panel中的toggle-button添加过渡 */
+        .control-panel .toggle-button {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s ease, visibility 0.5s ease, transform 0.5s ease;
+        }
+
+        /* 显示控件开关关闭后移到最下面 */
+        body.controls-hidden .control-panel {
+            flex-direction: column-reverse;
+        }
+
+        /* 超小尺寸时隐藏显示控件开关本身 */
+        body.ultra-small .control-panel .show-controls-toggle {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 控件隐藏时其他所有UI元素也隐藏 */
+        body.controls-hidden .navigation,
+        body.controls-hidden .theme-toggle-container,
+        body.controls-hidden .settings-fab,
+        body.controls-hidden .settings-pop,
+        body.controls-hidden .sync-reload-container,
+        body.controls-hidden .info-panel,
+        body.controls-hidden .notification,
+        body.controls-hidden .timer-controls,
+        body.controls-hidden .countdown-input-section {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* === 统一 UI 显隐动画（不破坏原 transform） === */
+        .navigation,
+        .theme-toggle-container,
+        .settings-fab {
+            transition:
+                opacity 0.4s ease,
+                visibility 0s linear 0.4s;
+        }
+
+        body.controls-hidden .navigation,
+        body.controls-hidden .theme-toggle-container,
+        body.controls-hidden .settings-fab {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        body:not(.controls-hidden) .navigation,
+        body:not(.controls-hidden) .theme-toggle-container,
+        body:not(.controls-hidden) .settings-fab {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+
+
+        .toggle-button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(45, 45, 45, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(0) scale(1);
+        }
+
+        body.day-mode .toggle-button {
+            background: #f5f5f5;
+            border: 1px solid #f7f7f7;
+        }
+
+        .toggle-button:hover {
+            background: rgba(45, 45, 45, 1);
+            transform: translateY(-2px);
+        }
+
+        body.day-mode .toggle-button:hover {
+            background: #f2f2f2;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            user-select: none;
+            transition: color 0.7s ease;
+        }
+
+        body.day-mode .toggle-label {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 20px;
+            background: #555;
+            border-radius: 10px;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        body.day-mode .toggle-switch {
+            background: #d0d0d0;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+
+        body.day-mode .toggle-switch::after {
+            background: #666;
+        }
+
+        .toggle-switch.active {
+            background: #2d2d2d;
+        }
+
+        body.day-mode .toggle-switch.active {
+            background: #c0c0c0;
+        }
+
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+
+        /* 主题切换按钮样式 */
+        .theme-toggle-container {
+            position: fixed;
+            top: 50px;
+            right: 80px;
+            z-index: 1000;
+            transform-origin: top right;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.5s ease,
+                        visibility 0.5s ease;
+        }
+
+        /* 主题按钮的Web Component容器 */
+        theme-button {
+            display: block;
+        }
+
+        /* ================= 右下角设置按钮 ================= */
+        .settings-fab {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            z-index: 1400;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.7s ease,
+                        opacity 0.5s ease,
+                        visibility 0.5s ease;
+        }
+
+        .settings-fab:hover {
+            transform: rotate(45deg) scale(1.08);
+        }
+
+        .settings-fab svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .settings-fab path {
+            fill: #fff;
+            transition: fill 0.7s ease;
+        }
+
+        body.day-mode .settings-fab {
+            background: rgba(255, 255, 255, 0.75);
+        }
+
+        body.day-mode .settings-fab path {
+            fill: #000;
+        }
+
+        /* ================= 设置弹出面板 ================= */
+        .settings-pop {
+            position: fixed;
+            right: 88px;
+            bottom: 88px;
+            width: 320px;
+            padding: 20px 22px;
+            border-radius: 18px;
+            background: rgba(28, 28, 28, 0.96);
+            backdrop-filter: blur(14px);
+            color: #fff;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            transform-origin: bottom right;
+            transform: scale(0.15);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.5s ease,
+                        visibility 0.5s ease,
+                        background 0.7s ease,
+                        color 0.7s ease;
+            z-index: 1500;
+        }
+
+        .settings-pop.open {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        body.day-mode .settings-pop {
+            background: rgba(245, 245, 245, 0.96);
+            color: #000;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 18px;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            cursor: pointer;
+            opacity: 0.6;
+            user-select: none;
+            transition: opacity 0.3s ease;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .settings-item {
+            margin-bottom: 16px;
+        }
+
+        .settings-item label {
+            display: block;
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .effects-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .effect-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .effect-label {
+            font-size: 13px;
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+
+        .number-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            transition: background 0.7s ease, border 0.7s ease, color 0.7s ease;
+        }
+
+        .number-input:focus {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.day-mode .number-input {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: #000;
+        }
+
+        body.day-mode .number-input:focus {
+            border-color: rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        /* ================= 导航栏样式 ================= */
+        .navigation {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 4px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: inline-flex;
+            transform-origin: top center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        body.day-mode .navigation {
+            background: rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item {
+            min-width: 100px;
+            height: 40px;
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            padding: 0 20px;
+            margin-right: 4px;
+            border-radius: 20px;
+            user-select: none;
+        }
+
+        body.day-mode .nav-item {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .nav-item:last-child {
+            margin-right: 0;
+        }
+
+        .navigation input[type="radio"] {
+            display: none;
+        }
+
+        .navigation input[type="radio"]:checked + label {
+            color: white;
+        }
+
+        body.day-mode .navigation input[type="radio"]:checked + label {
+            color: black;
+        }
+
+        .nav-tracker {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 1;
+            position: absolute;
+            top: 4px;
+            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+        }
+
+        body.day-mode .nav-tracker {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-hover-tracker {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s ease;
+            z-index: 0;
+            top: 4px;
+            position: absolute;
+        }
+
+        body.day-mode .nav-hover-tracker {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        /* ================= 视图容器样式 ================= */
+        .main-view-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .view-wrapper {
+            position: absolute;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(100px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .view-wrapper.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        /* 确保所有时钟容器大小一致 */
+        .view-wrapper .clock-container {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            position: relative;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ================= 控制按钮样式 ================= */
+        .timer-controls {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform-origin: center bottom;
+            transition: opacity 0.5s ease, visibility 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .timer-controls.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .time-picker {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 15px 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.7s ease;
+        }
+
+        body.day-mode .time-picker {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .time-input {
+            width: 60px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            color: white;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        body.day-mode .time-input {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: black;
+        }
+
+        .time-input:focus {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.day-mode .time-input:focus {
+            border-color: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .time-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            transition: color 0.7s ease;
+            user-select: none;
+        }
+
+        body.day-mode .time-label {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .control-btn {
+            min-width: 80px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            outline: none;
+        }
+
+        body.day-mode .control-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: black;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        body.day-mode .control-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        /* ================= 通知框样式 ================= */
+        .notification {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2b2b2b;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            transform-origin: top center;
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), background 0.7s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        body.day-mode .notification {
+            background: #f5f5f5;
+            color: black;
+        }
+
+        .notification.show {
+            top: 150px;
+        }
+
+        .notification-icon {
+            font-size: 24px;
+        }
+
+        /* ================= 快捷计时按钮样式 ================= */
+        .quick-timer-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        body.day-mode .quick-timer-section {
+            border-top-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .quick-timer-label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+            display: block;
+            transition: color 0.7s ease;
+        }
+
+        .quick-timer-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .quick-timer-btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        body.day-mode .quick-timer-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: #000;
+        }
+
+        .quick-timer-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        body.day-mode .quick-timer-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .quick-timer-btn:active {
+            transform: translateY(0);
+        }
+
+        /* ================= 响应式缩放 - 新增功能 ================= */
+
+        /* 1600px - 轻微缩放 */
+        @media (max-width: 1600px) {
+            .clock-container {
+                transform: scale(0.95);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.95);
+                bottom: 70px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.95);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.95);
+            }
+
+            .control-panel {
+                bottom: 25px;
+                left: 25px;
+            }
+
+            .settings-fab {
+                right: 20px;
+                bottom: 20px;
+            }
+        }
+
+        /* 1400px */
+        @media (max-width: 1400px) {
+            .clock-container {
+                transform: scale(0.9);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.9);
+                bottom: 60px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.9);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.9);
+            }
+
+            .control-panel {
+                bottom: 20px;
+                left: 20px;
+            }
+
+            .settings-fab {
+                right: 18px;
+                bottom: 18px;
+            }
+        }
+
+        /* 1200px */
+        @media (max-width: 1200px) {
+            .clock-container {
+                transform: scale(0.8);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.9);
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.9);
+                transform-origin: top right;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .settings-fab {
+                transform: scale(0.9);
+                transform-origin: center center;
+                right: 16px;
+                bottom: 16px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.9) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.9);
+                transform-origin: bottom left;
+                bottom: 16px;
+                left: 16px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .settings-pop {
+                right: 79px;
+                bottom: 79px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 85%;
+                transform: scale(0.9);
+                transform-origin: bottom left;
+                bottom: 16px;
+                left: 16px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.9);
+                bottom: 50px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.9);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.9);
+            }
+        }
+
+        /* 1000px - 新增断点 */
+        @media (max-width: 1000px) {
+            .clock-container {
+                transform: scale(0.72);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.88);
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.88);
+                top: 45px;
+                right: 70px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.88);
+                transform-origin: center center;
+                right: 14px;
+                bottom: 14px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.88) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.88);
+                transform-origin: bottom left;
+                bottom: 14px;
+                left: 14px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .settings-pop {
+                right: 77px;
+                bottom: 77px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 82%;
+                transform: scale(0.88);
+                transform-origin: bottom left;
+                bottom: 14px;
+                left: 14px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.88);
+                bottom: 45px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.88);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.88);
+            }
+        }
+
+        /* 900px */
+        @media (max-width: 900px) {
+            .clock-container {
+                transform: scale(0.65);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.85);
+                top: 40px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.85);
+                top: 35px;
+                right: 60px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.85);
+                right: 12px;
+                bottom: 12px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.85) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.85);
+                bottom: 12px;
+                left: 12px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 280px;
+                right: 72px;
+                bottom: 72px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 80%;
+                transform: scale(0.85);
+                transform-origin: bottom left;
+                bottom: 12px;
+                left: 12px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.85);
+                bottom: 40px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.85);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.85);
+            }
+
+            .countdown-input-section {
+                transform: scale(0.9);
+            }
+        }
+
+        /* 750px - 新增断点 */
+        @media (max-width: 750px) {
+            .clock-container {
+                transform: scale(0.58);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.8);
+                top: 35px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.8);
+                top: 30px;
+                right: 50px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.8);
+                right: 10px;
+                bottom: 10px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.8) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.8);
+                bottom: 10px;
+                left: 10px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 270px;
+                right: 68px;
+                bottom: 68px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 85%;
+                transform: scale(0.8);
+                transform-origin: bottom left;
+                bottom: 10px;
+                left: 10px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.8);
+                bottom: 35px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.8);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.8);
+            }
+        }
+
+        /* 600px */
+        @media (max-width: 600px) {
+            .clock-container {
+                transform: scale(0.5);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.75);
+                top: 30px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .nav-item {
+                min-width: 80px;
+                font-size: 14px;
+                padding: 0 15px;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.75);
+                top: 25px;
+                right: 45px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.75);
+                width: 48px;
+                height: 48px;
+                right: 8px;
+                bottom: 8px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.75) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.75);
+                bottom: 8px;
+                left: 8px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 260px;
+                right: 64px;
+                bottom: 64px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 90%;
+                padding: 20px;
+                transform: scale(0.75);
+                transform-origin: bottom left;
+                bottom: 8px;
+                left: 8px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.75);
+                bottom: 30px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.75);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.75);
+            }
+
+            .countdown-input-section {
+                transform: scale(0.85);
+            }
+
+            .control-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .control-btn {
+                width: 100%;
+            }
+        }
+
+        /* 500px - 新增断点 */
+        @media (max-width: 500px) {
+            .clock-container {
+                transform: scale(0.45);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.7);
+                top: 25px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .nav-item {
+                min-width: 75px;
+                font-size: 13px;
+                padding: 0 14px;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.7);
+                top: 22px;
+                right: 40px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.7);
+                width: 46px;
+                height: 46px;
+                right: 6px;
+                bottom: 6px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.7) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.7);
+                bottom: 6px;
+                left: 6px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 250px;
+                right: 59px;
+                bottom: 59px;
+                padding: 15px 18px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 92%;
+                padding: 18px;
+                transform: scale(0.7);
+                transform-origin: bottom left;
+                bottom: 6px;
+                left: 6px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.7);
+                bottom: 28px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.7);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.7);
+            }
+
+            .countdown-input-section {
+                transform: scale(0.82);
+            }
+        }
+
+        /* 400px */
+        @media (max-width: 400px) {
+            .clock-container {
+                transform: scale(0.4);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.65);
+                top: 20px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .nav-item {
+                min-width: 70px;
+                font-size: 13px;
+                padding: 0 12px;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.65);
+                top: 18px;
+                right: 35px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.65);
+                width: 44px;
+                height: 44px;
+                right: 5px;
+                bottom: 5px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.65) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.65);
+                bottom: 5px;
+                left: 5px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 240px;
+                right: 55px;
+                bottom: 55px;
+                padding: 16px 18px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 95%;
+                padding: 16px;
+                transform: scale(0.65);
+                transform-origin: bottom left;
+                bottom: 5px;
+                left: 5px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.65);
+                bottom: 25px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.65);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.65);
+            }
+
+            .countdown-input-section {
+                transform: scale(0.8);
+            }
+        }
+
+        /* 320px - 新增断点，最小屏幕 */
+        @media (max-width: 320px) {
+            .clock-container {
+                transform: scale(0.32);
+            }
+
+            .navigation {
+                transform: translateX(-50%) scale(0.6);
+                top: 15px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+            }
+
+            .nav-item {
+                min-width: 65px;
+                font-size: 12px;
+                padding: 0 10px;
+            }
+
+            .theme-toggle-container {
+                transform: scale(0.6);
+                top: 14px;
+                right: 30px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease, right 0.3s ease;
+            }
+
+            .settings-fab {
+                transform: scale(0.6);
+                width: 42px;
+                height: 42px;
+                right: 3px;
+                bottom: 3px;
+                transform-origin: center center;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, bottom 0.3s ease;
+            }
+
+            .settings-fab:hover {
+                transform: scale(0.6) rotate(45deg);
+            }
+
+            .settings-toggle {
+                transform: scale(0.6);
+                bottom: 3px;
+                left: 3px;
+                transform-origin: bottom left;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease, left 0.3s ease;
+            }
+
+            .settings-pop {
+                width: 220px;
+                right: 50px;
+                bottom: 50px;
+                padding: 14px 16px;
+            }
+
+            .settings-pop.open {
+                transform: scale(1);
+            }
+
+            .control-panel {
+                max-width: 98%;
+                padding: 14px;
+                transform: scale(0.6);
+                transform-origin: bottom left;
+                bottom: 3px;
+                left: 3px;
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .timer-controls {
+                transform: translateX(-50%) scale(0.6);
+                bottom: 20px;
+            }
+
+            .notification {
+                transform: translateX(-50%) scale(0.6);
+            }
+
+            .notification.show {
+                transform: translateX(-50%) scale(0.6);
+            }
+
+            .countdown-input-section {
+                transform: scale(0.75);
+            }
+        }
+
+        /* ========== 时间同步功能样式 ========== */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: background 0.7s ease, color 0.7s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        body.day-mode .sync-status {
+            background: rgba(255, 255, 255, 0.8);
+            color: black;
+        }
+
+        .sync-status:hover {
+            background: rgba(0, 0, 0, 0.85);
+        }
+
+        body.day-mode .sync-status:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        /* 重新加载按钮 */
+        .reload-button {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        body.day-mode .reload-button {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .reload-button:hover {
+            background: rgba(0, 0, 0, 0.85);
+            transform: translateY(-2px) rotate(180deg);
+        }
+
+        body.day-mode .reload-button:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .reload-button svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .reload-button path {
+            fill: rgba(255, 255, 255, 0.9);
+            transition: fill 0.7s ease;
+        }
+
+        body.day-mode .reload-button path {
+            fill: rgba(0, 0, 0, 0.8);
+        }
+
+        .reload-button:active {
+            transform: scale(0.95);
+        }
+
+        .reload-button.reloading svg {
+            animation: reloadSpin 0.6s ease-in-out;
+        }
+
+        @keyframes reloadSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 同步和重新加载按钮容器 */
+        .sync-reload-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1100;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .sync-success {
+            background-color: #4CAF50;
+        }
+
+        .sync-error {
+            background-color: #F44336;
+        }
+
+        .sync-pending {
+            background-color: #FFC107;
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 999;
+            max-width: 300px;
+            transition: opacity 0.3s ease, visibility 0.3s ease, background 0.7s ease, color 0.7s ease;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .info-panel.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        body.day-mode .info-panel {
+            background: rgba(255, 255, 255, 0.9);
+            color: black;
+        }
+
+        .info-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 5px;
+        }
+
+        body.day-mode .info-panel h3 {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+        }
+
+        .last-sync-time {
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .sync-interval-info {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        body.day-mode .sync-interval-info {
+            border-top: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+    </style>
+</head>
+<body class="twentyfour-mode">
+    <!-- 同步和重新加载按钮容器 -->
+    <div class="sync-reload-container">
+        <!-- 时间同步状态栏 -->
+        <div class="sync-status" id="syncStatus">
+            <span class="sync-indicator sync-pending" id="syncIndicator"></span>
+            <span id="syncText">正在同步时间...</span>
+        </div>
+
+        <!-- 重新加载时钟按钮 -->
+        <div class="reload-button" id="reloadButton" title="重新加载时钟">
+            <svg viewBox="0 0 24 24">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- 时间同步信息面板 -->
+    <div class="info-panel" id="infoPanel">
+        <h3>时间同步信息</h3>
+        <p>本地时间: <span id="localTime">--:--:--</span></p>
+        <p>网络时间: <span id="networkTime">--:--:--</span></p>
+        <p>时钟时间: <span id="clockTime">--:--:--</span></p>
+        <p>时间差: <span id="timeDiff">-- ms</span></p>
+        <p class="last-sync-time">上次同步: <span id="lastSyncTime">从未同步</span></p>
+        <div class="sync-interval-info">
+            同步间隔: 10分钟<br>
+            <span id="nextSyncIn">下次同步: -- 秒后</span>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="navigation">
+        <input type="radio" name="view-option" id="view-clock" checked>
+        <label class="nav-item" for="view-clock">时钟</label>
+
+        <input type="radio" name="view-option" id="view-countdown">
+        <label class="nav-item" for="view-countdown">倒计时</label>
+
+        <input type="radio" name="view-option" id="view-stopwatch">
+        <label class="nav-item" for="view-stopwatch">正计时</label>
+
+        <div class="nav-tracker" id="navTracker"></div>
+        <div class="nav-hover-tracker" id="navHoverTracker"></div>
+    </nav>
+
+    <!-- 星星容器 -->
+    <div class="stars" id="starsContainer"></div>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle-container">
+        <theme-button value="dark" id="themeBtn" size="2.2"></theme-button>
+    </div>
+
+    <!-- 主视图容器 -->
+    <div class="main-view-container">
+        <!-- 时钟视图 -->
+        <div class="view-wrapper active" id="clockView">
+            <div class="clock-container" id="mainClock">
+        <div class="time-group" id="hourGroup">
+            <div class="flip-card" id="hour1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flip-card" id="hour2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-group">
+            <div class="flip-card" id="minute1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flip-card" id="minute2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-group">
+            <div class="flip-card" id="second1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flip-card" id="second2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top">
+                        <div class="card-top-num">0</div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-bottom-num">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ampm-container" id="ampmGroup">
+            <div id="ampm"></div>
+        </div>
+            </div>
+        </div>
+
+        <!-- 倒计时视图 -->
+        <div class="view-wrapper" id="countdownView">
+            <div class="clock-container" id="countdownClock">
+                <div class="time-group">
+                    <div class="flip-card" id="cd-hour1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="cd-hour2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="separator">:</div>
+                <div class="time-group">
+                    <div class="flip-card" id="cd-minute1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="cd-minute2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="separator">:</div>
+                <div class="time-group">
+                    <div class="flip-card" id="cd-second1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="cd-second2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 正计时视图 -->
+        <div class="view-wrapper" id="stopwatchView">
+            <div class="clock-container" id="stopwatchClock">
+                <div class="time-group">
+                    <div class="flip-card" id="sw-hour1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="sw-hour2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="separator">:</div>
+                <div class="time-group">
+                    <div class="flip-card" id="sw-minute1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="sw-minute2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="separator">:</div>
+                <div class="time-group">
+                    <div class="flip-card" id="sw-second1">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flip-card" id="sw-second2">
+                        <div class="flip-card-wrapper">
+                            <div class="card-top">
+                                <div class="card-top-num">0</div>
+                            </div>
+                            <div class="card-bottom">
+                                <div class="card-bottom-num">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 倒计时控制 -->
+    <div class="timer-controls" id="countdownControls">
+        <div class="time-picker">
+            <input type="number" class="time-input" id="cdHours" min="0" max="99" value="0">
+            <span class="time-label">时</span>
+            <input type="number" class="time-input" id="cdMinutes" min="0" max="59" value="0">
+            <span class="time-label">分</span>
+            <input type="number" class="time-input" id="cdSeconds" min="0" max="59" value="0">
+            <span class="time-label">秒</span>
+        </div>
+        <button class="control-btn" id="cdStart">开始</button>
+        <button class="control-btn" id="cdPause" style="display: none;">暂停</button>
+        <button class="control-btn" id="cdReset">重置</button>
+    </div>
+
+    <!-- 正计时控制 -->
+    <div class="timer-controls" id="stopwatchControls">
+        <button class="control-btn" id="swStart">开始</button>
+        <button class="control-btn" id="swPause" style="display: none;">暂停</button>
+        <button class="control-btn" id="swReset">重置</button>
+    </div>
+
+    <!-- 通知框 -->
+    <div class="notification" id="notification">
+        <span class="notification-icon">⚠️</span>
+        <span>时间到!</span>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <div class="toggle-button show-controls-toggle" id="showControlsToggle">
+            <span class="toggle-label">显示控件</span>
+            <div class="toggle-switch active"></div>
+        </div>
+        <div class="toggle-button" id="starsToggle">
+            <span class="toggle-label">星星效果</span>
+            <div class="toggle-switch active"></div>
+        </div>
+        <div class="toggle-button" id="effectToggle">
+            <span class="toggle-label">光影效果</span>
+            <div class="toggle-switch active"></div>
+        </div>
+    </div>
+
+    <!-- 右下角设置按钮 -->
+    <div class="settings-fab" id="settingsFab">
+        <svg viewBox="0 0 24 24">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+        </svg>
+    </div>
+
+    <!-- 设置弹出面板 -->
+    <div class="settings-pop" id="settingsPop">
+        <div class="settings-header">
+            设置
+            <span class="close-btn" id="closeSettingsPop">×</span>
+        </div>
+
+        <div class="settings-item">
+            <label>星星数量</label>
+            <input type="number" id="starCountInput" min="0" max="500" step="10" class="number-input">
+        </div>
+
+        <div class="settings-item">
+            <label>光影效果</label>
+            <div class="effects-row">
+                <div class="effect-item">
+                    <span class="effect-label">数字高光</span>
+                    <div class="toggle-switch active" id="numberGlowToggle"></div>
+                </div>
+                <div class="effect-item">
+                    <span class="effect-label">时钟阴影</span>
+                    <div class="toggle-switch active" id="clockShadowToggle"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-item">
+            <label>小时制</label>
+            <div class="effects-row">
+                <div class="effect-item">
+                    <span class="effect-label">24小时制</span>
+                    <div class="toggle-switch active" id="hourFormatToggle"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-item" id="timeOffsetSetting">
+            <label>时间偏移 (小时)</label>
+            <input type="number" id="timeOffsetInput" step="0.5" class="number-input">
+        </div>
+
+        <div class="settings-item quick-timer-section" id="quickTimerSetting" style="display: none;">
+            <label class="quick-timer-label">快捷计时</label>
+            <div class="quick-timer-buttons">
+                <button class="quick-timer-btn" data-minutes="5">5分钟</button>
+                <button class="quick-timer-btn" data-minutes="15">15分钟</button>
+                <button class="quick-timer-btn" data-minutes="30">30分钟</button>
+            </div>
+        </div>
+    </div>
+    
+
+    <script>
+        let suppressFlipOnce = false;
+        let skipNextFlip = false; // 兼容性变量，实际使用suppressFlipOnce
+
+        // ========== 主题切换按钮 Web Component ==========
+        (() => {
+            const func = (root, initTheme, changeTheme) => {
+                const $ = (s) => {
+                    let dom = root.querySelectorAll(s);
+                    return dom.length == 1 ? dom[0] : dom;
+                };
+                let mainButton = $(".main-button");
+                let daytimeBackground = $(".daytime-background");
+                let cloud = $(".cloud");
+                let cloudList = $(".cloud-son");
+                let cloudLight = $(".cloud-light");
+                let components = $(".components");
+                let moon = $(".moon");
+                let stars = $(".stars");
+                let star = $(".star");
+                let isMoved = false;
+                let isClicked = false;
+
+
+                components.onclick = () => {
+                    if (isMoved) {
+                        mainButton.style.transform = "translateX(0)";
+                        mainButton.style.backgroundColor = "rgba(255, 195, 35,1)";
+
+                        mainButton.style.boxShadow =
+                            "3em 3em 5em rgba(0, 0, 0, 0.5), inset  -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset  4em 5em 2em -2em rgba(255, 230, 80,1)";
+
+                        daytimeBackground[0].style.transform = "translateX(0)";
+                        daytimeBackground[1].style.transform = "translateX(0)";
+                        daytimeBackground[2].style.transform = "translateX(0)";
+                        cloud.style.transform = "translateY(10em)";
+                        cloudLight.style.transform = "translateY(10em)";
+                        components.style.backgroundColor = "rgba(70, 133, 192,1)";
+
+                        moon[0].style.opacity = "0";
+                        moon[1].style.opacity = "0";
+                        moon[2].style.opacity = "0";
+
+                        stars.style.transform = "translateY(-125em)";
+                        stars.style.opacity = "0";
+
+                        changeTheme("light");
+                    } else {
+                        mainButton.style.transform = "translateX(110em)";
+                        mainButton.style.backgroundColor = "rgba(195, 200,210,1)";
+
+                        mainButton.style.boxShadow =
+                            "3em 3em 5em rgba(0, 0, 0, 0.5), inset  -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset  4em 5em 2em -2em rgba(255, 255, 210,1)";
+
+                        daytimeBackground[0].style.transform = "translateX(110em)";
+                        daytimeBackground[1].style.transform = "translateX(80em)";
+                        daytimeBackground[2].style.transform = "translateX(50em)";
+                        cloud.style.transform = "translateY(80em)";
+                        cloudLight.style.transform = "translateY(80em)";
+                        components.style.backgroundColor = "rgba(25,30,50,1)";
+
+                        moon[0].style.opacity = "1";
+                        moon[1].style.opacity = "1";
+                        moon[2].style.opacity = "1";
+
+                        stars.style.transform = "translateY(-62.5em)";
+                        stars.style.opacity = "1";
+
+                        changeTheme("dark");
+                    }
+
+                    isClicked = true;
+
+                    setTimeout(function () {
+                        isClicked = false;
+                    }, 500);
+                    isMoved = !isMoved;
+                };
+
+                mainButton.addEventListener("mouseover", function () {
+                    if (isClicked) {
+                        return;
+                    }
+                    if (isMoved) {
+                        mainButton.style.transform = "translateX(105em)";
+                        daytimeBackground[0].style.transform = "translateX(105em)";
+                        daytimeBackground[1].style.transform = "translateX(75em)";
+                        daytimeBackground[2].style.transform = "translateX(45em)";
+
+                        star[0].style.top = "13em";
+                        star[0].style.left = "41em";
+                        star[1].style.top = "41em";
+                        star[1].style.left = "93em";
+                        star[2].style.top = "28em";
+                        star[2].style.left = "21em";
+                        star[3].style.top = "39em";
+                        star[3].style.left = "68em";
+                        star[4].style.top = "23em";
+                        star[4].style.left = "77em";
+                        star[5].style.top = "53em";
+                        star[5].style.left = "40em";
+                    } else {
+                        mainButton.style.transform = "translateX(5em)";
+                        daytimeBackground[0].style.transform = "translateX(5em)";
+                        daytimeBackground[1].style.transform = "translateX(5em)";
+                        daytimeBackground[2].style.transform = "translateX(5em)";
+
+                        cloudList[0].style.right = "-18em";
+                        cloudList[0].style.bottom = "12em";
+                        cloudList[1].style.right = "-9em";
+                        cloudList[1].style.bottom = "-23em";
+                        cloudList[2].style.right = "22em";
+                        cloudList[2].style.bottom = "-38em";
+                        cloudList[3].style.right = "52em";
+                        cloudList[3].style.bottom = "-33em";
+                        cloudList[4].style.right = "77em";
+                        cloudList[4].style.bottom = "-58em";
+                        cloudList[5].style.right = "112em";
+                        cloudList[5].style.bottom = "-48em";
+                        cloudList[6].style.right = "-18em";
+                        cloudList[6].style.bottom = "10em";
+                        cloudList[7].style.right = "-11em";
+                        cloudList[7].style.bottom = "-26em";
+                        cloudList[8].style.right = "18em";
+                        cloudList[8].style.bottom = "-42em";
+                        cloudList[9].style.right = "47em";
+                        cloudList[9].style.bottom = "-38em";
+                        cloudList[10].style.right = "74em";
+                        cloudList[10].style.bottom = "-64em";
+                        cloudList[11].style.right = "110em";
+                        cloudList[11].style.bottom = "-55em";
+                    }
+                });
+
+                mainButton.addEventListener("mouseout", function () {
+                    if (isClicked) {
+                        return;
+                    }
+                    if (isMoved) {
+                        mainButton.style.transform = "translateX(110em)";
+                        daytimeBackground[0].style.transform = "translateX(110em)";
+                        daytimeBackground[1].style.transform = "translateX(80em)";
+                        daytimeBackground[2].style.transform = "translateX(50em)";
+
+                        star[0].style.top = "11em";
+                        star[0].style.left = "39em";
+                        star[1].style.top = "39em";
+                        star[1].style.left = "91em";
+                        star[2].style.top = "26em";
+                        star[2].style.left = "19em";
+                        star[3].style.top = "37em";
+                        star[3].style.left = "66em";
+                        star[4].style.top = "21em";
+                        star[4].style.left = "75em";
+                        star[5].style.top = "51em";
+                        star[5].style.left = "38em";
+                    } else {
+                        mainButton.style.transform = "translateX(0em)";
+                        daytimeBackground[0].style.transform = "translateX(0em)";
+                        daytimeBackground[1].style.transform = "translateX(0em)";
+                        daytimeBackground[2].style.transform = "translateX(0em)";
+
+                        cloudList[0].style.right = "-20em";
+                        cloudList[0].style.bottom = "10em";
+                        cloudList[1].style.right = "-10em";
+                        cloudList[1].style.bottom = "-25em";
+                        cloudList[2].style.right = "20em";
+                        cloudList[2].style.bottom = "-40em";
+                        cloudList[3].style.right = "50em";
+                        cloudList[3].style.bottom = "-35em";
+                        cloudList[4].style.right = "75em";
+                        cloudList[4].style.bottom = "-60em";
+                        cloudList[5].style.right = "110em";
+                        cloudList[5].style.bottom = "-50em";
+                        cloudList[6].style.right = "-20em";
+                        cloudList[6].style.bottom = "10em";
+                        cloudList[7].style.right = "-10em";
+                        cloudList[7].style.bottom = "-25em";
+                        cloudList[8].style.right = "20em";
+                        cloudList[8].style.bottom = "-40em";
+                        cloudList[9].style.right = "50em";
+                        cloudList[9].style.bottom = "-35em";
+                        cloudList[10].style.right = "75em";
+                        cloudList[10].style.bottom = "-60em";
+                        cloudList[11].style.right = "110em";
+                        cloudList[11].style.bottom = "-50em";
+                    }
+                });
+
+                const getRandomDirection = () => {
+                    const directions = ["2em", "-2em"];
+                    return directions[Math.floor(Math.random() * directions.length)];
+                };
+
+                const moveElementRandomly = (element) => {
+                    const randomDirectionX = getRandomDirection();
+                    const randomDirectionY = getRandomDirection();
+                    element.style.transform = `translate(${randomDirectionX}, ${randomDirectionY})`;
+                };
+
+                const cloudSons = root.querySelectorAll(".cloud-son");
+                setInterval(() => {
+                    cloudSons.forEach(moveElementRandomly);
+                }, 1000);
+
+                if (initTheme === "dark") {
+                    components.onclick();
+                }
+            };
+
+            class ThemeButton extends HTMLElement {
+                constructor() {
+                    super();
+                }
+                connectedCallback() {
+                    const initTheme = this.getAttribute("value") || "light";
+                    const size = +this.getAttribute("size") || 3;
+                    const shadow = this.attachShadow({ mode: "closed" });
+                    const container = document.createElement("div");
+                    container.setAttribute("class", "container");
+                    container.setAttribute("style", `font-size: ${(size / 3).toFixed(2)}px`);
+                    container.innerHTML =
+                        '<div class="components"><div class="main-button"><div class="moon"></div><div class="moon"></div><div class="moon"></div></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="cloud"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="cloud-light"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="stars"><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div></div></div>';
+                    const style = document.createElement("style");
+                    style.textContent =
+                        "* { margin: 0; padding: 0; transition: 0.7s; -webkit-tap-highlight-color:rgba(0,0,0,0); } .container { position: absolute;top: 50%;left: 50%;margin-top: -35em;margin-left: -90em;width: 180em; height: 70em; display: inline-block; vertical-align: bottom; transform: translate3d(0, 0, 0); } .components{ position:fixed; width: 180em; height: 70em; background-color: rgba(70, 133, 192,1); border-radius: 100em; box-shadow: inset 0 0 5em 3em rgba(0, 0, 0, 0.5); overflow: hidden; transition: 0.7s; transition-timing-function: cubic-bezier( 0,0.5, 1,1); cursor: pointer; } .main-button{ margin: 7.5em 0 0 7.5em; width: 55em; height:55em; background-color: rgba(255, 195, 35,1); border-radius: 50%; box-shadow:3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 230, 80,1); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .moon{ position: absolute; background-color: rgba(150, 160, 180, 1); box-shadow:inset 0em 0em 1em 1em rgba(0, 0, 0, 0.3) ; border-radius: 50%; transition: 0.5s; opacity: 0; } .moon:nth-child(1){ top: 7.5em; left: 25em; width: 12.5em; height: 12.5em; } .moon:nth-child(2){ top: 20em; left: 7.5em; width: 20em; height: 20em; } .moon:nth-child(3){ top: 32.5em; left: 32.5em; width: 12.5em; height: 12.5em; } .daytime-background { position: absolute; border-radius: 50%; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .daytime-background:nth-child(2){ top: -20em; left: -20em; width: 110em; height:110em; background-color: rgba(255, 255, 255,0.2); z-index: -2; } .daytime-background:nth-child(3){ top: -32.5em; left: -17.5em; width: 135em; height:135em; background-color: rgba(255, 255, 255,0.1); z-index: -3; } .daytime-background:nth-child(4){ top: -45em; left: -15em; width: 160em; height:160em; background-color: rgba(255, 255, 255,0.05); z-index: -4; } .cloud,.cloud-light{ transform: translateY(10em); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .cloud-son{ position: absolute; background-color: #fff; border-radius: 50%; z-index: -1; transition: transform 6s,right 1s,bottom 1s; } .cloud-son:nth-child(6n+1){ right: -20em; bottom: 10em; width: 50em; height: 50em; } .cloud-son:nth-child(6n+2) { right: -10em; bottom: -25em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+3) { right: 20em; bottom: -40em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+4) { right: 50em; bottom: -35em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+5) { right: 75em; bottom: -60em; width: 75em; height: 75em; } .cloud-son:nth-child(6n+6) { right: 110em; bottom: -50em; width: 60em; height: 60em; } .cloud{ z-index: -2; } .cloud-light{ position: absolute; right: 0em; bottom: 25em; opacity: 0.5; z-index: -3; } .stars{ transform: translateY(-125em); z-index: -2; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .big { --size: 7.5em; } .medium { --size: 5em; } .small { --size: 3em; } .star { position: absolute; width: calc(2*var(--size)); height: calc(2*var(--size)); } .star:nth-child(1){ top: 11em; left: 39em; animation-name: star; animation-duration: 3.5s; } .star:nth-child(2){ top: 39em; left: 91em; animation-name: star; animation-duration: 4.1s; } .star:nth-child(3){ top: 26em; left: 19em; animation-name: star; animation-duration: 4.9s; } .star:nth-child(4){ top: 37em; left: 66em; animation-name: star; animation-duration: 5.3s; } .star:nth-child(5){ top: 21em; left: 75em; animation-name: star; animation-duration: 3s; } .star:nth-child(6){ top: 51em; left: 38em; animation-name: star; animation-duration: 2.2s; } @keyframes star { 0%,20%{ transform: scale(0); } 20%,100% { transform: scale(1); } } .star-son{ float: left; } .star-son:nth-child(1) { --pos: left 0; } .star-son:nth-child(2) { --pos: right 0; } .star-son:nth-child(3) { --pos: 0 bottom; } .star-son:nth-child(4) { --pos: right bottom; } .star-son { width: var(--size); height: var(--size); background-image: radial-gradient(circle var(--size) at var(--pos), transparent var(--size), #fff); } .star{ transform: scale(1); transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); transition: 1s; animation-iteration-count:infinite; animation-direction: alternate; animation-timing-function: linear; } .twinkle { transform: scale(0); }";
+                    const changeTheme = (detail) => {
+                        this.dispatchEvent(new CustomEvent("change", { detail }));
+                    };
+                    func(container, initTheme, changeTheme);
+                    shadow.appendChild(style);
+                    shadow.appendChild(container);
+                }
+            }
+
+            customElements.define("theme-button", ThemeButton);
+        })();
+
+        // ========== 星星生成 ==========
+        let currentStarCount = 100; // 默认星星数量
+
+        function createStars(count = currentStarCount) {
+            const starsContainer = document.getElementById('starsContainer');
+            starsContainer.innerHTML = ''; // 清空现有星星
+            currentStarCount = count;
+
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+
+                const duration = Math.random() * 3 + 2;
+                star.style.animationDuration = duration + 's';
+
+                const delay = Math.random() * 5;
+                star.style.animationDelay = delay + 's';
+
+                starsContainer.appendChild(star);
+            }
+        }
+
+        createStars();
+
+        // ========== 控制按钮变量提前声明 ==========
+        const effectToggle = document.getElementById('effectToggle');
+        const effectToggleSwitch = effectToggle.querySelector('.toggle-switch');
+        let effectEnabled = true;
+        // 设置中的独立记忆状态
+        let settingsNumberGlowEnabled = true;
+        let settingsClockShadowEnabled = true;
+
+        const starsToggle = document.getElementById('starsToggle');
+        const starsToggleSwitch = starsToggle.querySelector('.toggle-switch');
+        let starsEnabled = true;
+
+        let is24Hour = true;
+
+        // ========== 应用光影效果的函数 ==========
+        function applyLightEffectSettings() {
+            if (effectEnabled) {
+                // 光影效果开启时，根据设置中的独立开关状态
+                document.body.classList.remove('simple-mode');
+                // 应用数字高光设置（使用正确的类名）
+                if (!settingsNumberGlowEnabled) {
+                    document.body.classList.add('no-number-glow');
+                } else {
+                    document.body.classList.remove('no-number-glow');
+                }
+                // 应用时钟阴影设置
+                if (!settingsClockShadowEnabled) {
+                    document.body.classList.add('no-clock-shadow');
+                } else {
+                    document.body.classList.remove('no-clock-shadow');
+                }
+            } else {
+                // 光影效果关闭时,使用simple-mode(完全关闭所有光影)
+                document.body.classList.add('simple-mode');
+                // 移除细分控制类，simple-mode会覆盖一切
+                document.body.classList.remove('no-number-glow');
+                document.body.classList.remove('no-clock-shadow');
+            }
+        }
+
+        // ========== 主题切换监听 ==========
+        const themeBtn = document.getElementById('themeBtn');
+        themeBtn.addEventListener("change", e => {
+            if (e.detail === 'dark') {
+                document.body.classList.remove('day-mode');
+                // 切换到黑夜模式时，如果星星被关闭则打开
+                if (!starsEnabled) {
+                    starsEnabled = true;
+                    starsToggleSwitch.classList.add('active');
+                    document.body.classList.remove('no-stars');
+                }
+                // 切换到黑夜模式时，自动打开光影效果
+                if (!effectEnabled) {
+                    effectEnabled = true;
+                    effectToggleSwitch.classList.add('active');
+                    applyLightEffectSettings();
+                }
+            } else {
+                document.body.classList.add('day-mode');
+                // 切换到白天模式时，默认关闭星星
+                if (starsEnabled) {
+                    starsEnabled = false;
+                    starsToggleSwitch.classList.remove('active');
+                    document.body.classList.add('no-stars');
+                }
+                // 切换到白天模式时，自动关闭光影效果
+                if (effectEnabled) {
+                    effectEnabled = false;
+                    effectToggleSwitch.classList.remove('active');
+                    applyLightEffectSettings();
+                }
+            }
+        });
+
+        // ========== 控制按钮 ==========
+        // 显示控件开关
+        const showControlsToggle = document.getElementById('showControlsToggle');
+        const showControlsToggleSwitch = showControlsToggle.querySelector('.toggle-switch');
+        let showControlsEnabled = true;
+        let lastControlSource = 'user'; // 'user' 或 'auto' - 记录上次是谁控制的
+
+        showControlsToggle.addEventListener('click', () => {
+            showControlsEnabled = !showControlsEnabled;
+            showControlsToggleSwitch.classList.toggle('active');
+            document.body.classList.toggle('controls-hidden', !showControlsEnabled);
+            lastControlSource = 'user'; // 用户手动控制
+        });
+
+        // 检查是否是白天模式，如果是则默认关闭星星
+        if (document.body.classList.contains('day-mode')) {
+            starsEnabled = false;
+            starsToggleSwitch.classList.remove('active');
+            document.body.classList.add('no-stars');
+        }
+
+        starsToggle.addEventListener('click', () => {
+            starsEnabled = !starsEnabled;
+            starsToggleSwitch.classList.toggle('active');
+            document.body.classList.toggle('no-stars');
+        });
+
+        // 左下角光影效果主开关
+        effectToggle.addEventListener('click', () => {
+            effectEnabled = !effectEnabled;
+            effectToggleSwitch.classList.toggle('active');
+            applyLightEffectSettings();
+        });
+
+        // 设置面板中的数字高光开关(独立记忆,不影响左下角开关)
+        const numberGlowToggle = document.getElementById('numberGlowToggle');
+        numberGlowToggle.addEventListener('click', () => {
+            settingsNumberGlowEnabled = !settingsNumberGlowEnabled;
+            numberGlowToggle.classList.toggle('active');
+            // 如果光影效果已开启，立即应用设置
+            if (effectEnabled) {
+                applyLightEffectSettings();
+            }
+        });
+
+        // 设置面板中的时钟阴影开关(独立记忆,不影响左下角开关)
+        const clockShadowToggle = document.getElementById('clockShadowToggle');
+        clockShadowToggle.addEventListener('click', () => {
+            settingsClockShadowEnabled = !settingsClockShadowEnabled;
+            clockShadowToggle.classList.toggle('active');
+            // 如果光影效果已开启，立即应用设置
+            if (effectEnabled) {
+                applyLightEffectSettings();
+            }
+        });
+
+        // 设置面板中的小时制开关
+        const hourFormatToggle = document.getElementById('hourFormatToggle');
+        hourFormatToggle.addEventListener('click', () => {
+            is24Hour = !is24Hour;
+            hourFormatToggle.classList.toggle('active');
+            document.body.classList.toggle('twentyfour-mode', is24Hour);
+
+            // 清除小时数字的逻辑值，强制触发翻页动画
+            delete logicalValues['hour1'];
+            delete logicalValues['hour2'];
+
+            updateClock();
+            requestAnimationFrame(positionAmPm);
+        });
+
+        // ========== 时间轴系统（完整实现） ==========
+        const TimeSystem = {
+            // 逻辑时间轴锚点
+            baseLogicTime: 0,        // 逻辑时间起点（ms）
+            baseLocalTime: 0,        // 本地时间起点（ms）
+
+            // 最近一次校准时间
+            lastCalibrateAt: 0,
+
+            // 校准参数
+            AUTO_INTERVAL: 10 * 60 * 1000,    // 10分钟自动校准
+            LOCAL_TRUST_THRESHOLD: 2000,      // 2秒阈值
+
+            // 校准状态
+            isCalibrating: false,              // 是否正在校准中
+            needsCalibration: false,           // 是否需要校准
+        };
+
+        let manualTimeOffset = 0; // 手动设置的时间偏移（毫秒）
+
+        // 初始化时间轴
+        function initTimeSystem() {
+            const now = Date.now();
+            TimeSystem.baseLogicTime = now;
+            TimeSystem.baseLocalTime = now;
+            TimeSystem.lastCalibrateAt = now;
+            console.log('时间轴系统初始化完成');
+        }
+
+        // getNow - 唯一的时间获取接口
+        function getNow() {
+            const elapsed = Date.now() - TimeSystem.baseLocalTime;
+            const logicTime = TimeSystem.baseLogicTime + elapsed + manualTimeOffset;
+            return new Date(logicTime);
+        }
+
+
+        // 统一的校准入口
+        function calibrateTime({ localTime, networkTime = null }, isManual = false) {
+            const nowLocal = Date.now();
+            const elapsedSinceLocalTime = nowLocal - localTime;
+
+            let targetTime;
+
+            // 判断使用哪个时间源
+            if (networkTime != null &&
+                Math.abs(networkTime - localTime) >= TimeSystem.LOCAL_TRUST_THRESHOLD) {
+                // 网络与本地差值 >= 2s，使用网络时间
+                // 关键修复：将networkTime向前推进，补偿从获取networkTime到现在的时间流逝
+                targetTime = networkTime + elapsedSinceLocalTime;
+                console.log('使用网络时间校准，差值:', Math.abs(networkTime - localTime), 'ms, 延迟补偿:', elapsedSinceLocalTime, 'ms');
+            } else {
+                // 否则使用本地时间
+                // 同样补偿时间流逝
+                targetTime = localTime + elapsedSinceLocalTime;
+                console.log('使用本地时间校准, 延迟补偿:', elapsedSinceLocalTime, 'ms');
+            }
+
+            // 重建时间轴（不跳秒）
+            TimeSystem.baseLogicTime = targetTime;
+            TimeSystem.baseLocalTime = nowLocal;
+
+            // 【修改】只有在手动校准时才重置校准倒计时
+            if (isManual) {
+                TimeSystem.lastCalibrateAt = nowLocal;
+            }
+
+            TimeSystem.needsCalibration = false;
+
+            console.log('时间轴已校准，新锚点:', new Date(targetTime).toLocaleString(), '是否手动:', isManual);
+        }
+
+        // 检查是否需要自动校准
+        function checkAutoCalibration() {
+            const now = Date.now();
+
+            // 如果正在校准中或有动画进行中，延迟校准
+            if (TimeSystem.isCalibrating || isAnyFlipping()) {
+                return;
+            }
+
+            // 检查是否到了自动校准时间
+            if (now - TimeSystem.lastCalibrateAt >= TimeSystem.AUTO_INTERVAL) {
+                TimeSystem.needsCalibration = true;
+                performAutoCalibration();
+            }
+        }
+
+        // 执行自动校准
+        async function performAutoCalibration() {
+            if (TimeSystem.isCalibrating) return;
+
+            TimeSystem.isCalibrating = true;
+            console.log('执行自动校准...');
+
+            try {
+                // 先获取网络时间
+                const networkTime = await fetchNetworkTime();
+                // 立即获取本地时间
+                const localTime = Date.now();
+
+                // 等待动画安全点
+                await waitForAnimationSafety();
+
+                // 执行校准(自动校准更新lastCalibrateAt但标记为非手动)
+                calibrateTime({ localTime, networkTime }, false);
+
+                // ★ 修复：自动校准后允许下一秒翻页
+                delete logicalValues['second1'];
+                delete logicalValues['second2'];
+
+
+                // 【修复】自动校准后需要更新lastCalibrateAt,避免重复触发
+                TimeSystem.lastCalibrateAt = Date.now();
+
+                // 【状态层】更新系统状态:最近一次同步的时间差
+                lastTimeDiff = networkTime - localTime;
+
+                // 更新信息面板
+                updateInfoPanel();
+
+            } catch (error) {
+                console.log('自动校准失败，使用本地时间:', error.message);
+
+                // 网络失败时使用本地时间
+                const localTime = Date.now();
+                await waitForAnimationSafety();
+                calibrateTime({ localTime, networkTime: null }, false);
+
+                // ★ 修复：自动校准后允许下一秒翻页
+                delete logicalValues['second1'];
+                delete logicalValues['second2'];
+
+
+                // 【修复】自动校准后需要更新lastCalibrateAt,避免重复触发
+                TimeSystem.lastCalibrateAt = Date.now();
+
+                // 失败时不更新lastTimeDiff，保留上次的值
+
+                updateInfoPanel();
+
+            } finally {
+                TimeSystem.isCalibrating = false;
+            }
+        }
+
+        // 获取网络时间
+        async function fetchNetworkTime() {
+            const before = Date.now();
+            const res = await fetch('https://cn.apihz.cn/api/time/getapi.php?id=10012830&key=aa7a47c06ae59cb951b570dd7d9ecd5b&type=2');
+            const after = Date.now();
+
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+
+            const data = await res.json();
+
+            if (!data.msg || typeof data.msg !== 'string') {
+                throw new Error('Invalid API response format');
+            }
+
+            // 将 "2025-02-06 12:34:56" 格式转换为 "2025-02-06T12:34:56"
+            const serverDateStr = data.msg.replace(/\s+/g, 'T');
+            const serverDate = new Date(serverDateStr);
+
+            if (isNaN(serverDate.getTime())) {
+                throw new Error(`Invalid date string from API: ${data.msg}`);
+            }
+
+            const serverMs = serverDate.getTime();
+            const roundTrip = after - before;
+            const networkTime = serverMs + Math.round(roundTrip / 2);
+
+            return networkTime;
+        }
+
+        // 等待动画安全点
+        function waitForAnimationSafety(maxWait = 5000) {
+            return new Promise((resolve) => {
+                const startTime = Date.now();
+
+                const checkSafety = () => {
+                    // 如果没有翻页动画或已超时，则认为安全
+                    if (!isAnyFlipping() || Date.now() - startTime > maxWait) {
+                        resolve();
+                    } else {
+                        // 等待100ms后再次检查
+                        setTimeout(checkSafety, 100);
+                    }
+                };
+
+                checkSafety();
+            });
+        }
+
+        const animationQueues = {};
+        const logicalValues = {};
+        const pendingTimeouts = {};
+
+
+        // 页面可见性变化处理 - 修复离开页面后动画丢失的问题（新增：完整强制更新）
+        let wasHidden = false;
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                wasHidden = true;
+            } else if (wasHidden) {
+                // 页面重新可见时,清理所有动画状态
+                const allCards = ['hour1', 'hour2', 'minute1', 'minute2', 'second1', 'second2',
+                                  'cd-hour1', 'cd-hour2', 'cd-minute1', 'cd-minute2', 'cd-second1', 'cd-second2',
+                                  'sw-hour1', 'sw-hour2', 'sw-minute1', 'sw-minute2', 'sw-second1', 'sw-second2'];
+                allCards.forEach(id => {
+                    const card = document.getElementById(id);
+                    if (!card) return; // 如果卡片不存在则跳过
+
+                    if (card.classList.contains('flipping')) {
+                        card.classList.remove('flipping');
+                    }
+
+                    // 清理所有翻页元素（可能有多个残留）
+                    const wrapper = card.querySelector('.flip-card-wrapper');
+                    if (!wrapper) return;
+
+                    const flipTops = wrapper.querySelectorAll('.flip-top');
+                    const flipBottoms = wrapper.querySelectorAll('.flip-bottom');
+
+                    flipTops.forEach(el => el.remove());
+                    flipBottoms.forEach(el => el.remove());
+
+                    if (pendingTimeouts[id]) {
+                        clearTimeout(pendingTimeouts[id]);
+                        delete pendingTimeouts[id];
+                    }
+
+                    // 新增：清除逻辑值，强制重新翻牌
+                    delete logicalValues[id];
+                });
+
+                // 新增：立即强制更新时钟显示
+                const now = getNow();
+                const hours = String(is24Hour ? now.getHours() : (now.getHours() % 12 || 12)).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                // 直接设置卡片显示内容 - 时钟视图
+                ['hour1', 'hour2', 'minute1', 'minute2', 'second1', 'second2'].forEach((id, idx) => {
+                    const digit = [hours[0], hours[1], minutes[0], minutes[1], seconds[0], seconds[1]][idx];
+                    const card = document.getElementById(id);
+                    if (!card) return;
+                    const topNum = card.querySelector('.card-top-num');
+                    const bottomNum = card.querySelector('.card-bottom-num');
+                    if (topNum && bottomNum) {
+                        topNum.textContent = digit;
+                        bottomNum.textContent = digit;
+                        logicalValues[id] = digit;
+                    }
+                });
+
+                // 【新增】更新倒计时显示
+                if (currentView === 'countdown') {
+                    updateCountdownDisplay();
+                }
+
+                // 【新增】更新正计时显示
+                if (currentView === 'stopwatch') {
+                    updateStopwatchDisplay();
+                }
+
+                updateClock();
+                wasHidden = false;
+            }
+        });
+
+        // 新增：监听窗口焦点事件，额外保障
+        window.addEventListener('focus', () => {
+            if (wasHidden || document.hidden) {
+                // 强制清理并更新
+                const allCards = ['hour1', 'hour2', 'minute1', 'minute2', 'second1', 'second2',
+                                  'cd-hour1', 'cd-hour2', 'cd-minute1', 'cd-minute2', 'cd-second1', 'cd-second2',
+                                  'sw-hour1', 'sw-hour2', 'sw-minute1', 'sw-minute2', 'sw-second1', 'sw-second2'];
+                allCards.forEach(id => {
+                    delete logicalValues[id];
+                    const card = document.getElementById(id);
+                    if (!card) return;
+
+                    if (card.classList.contains('flipping')) {
+                        card.classList.remove('flipping');
+                    }
+                    const wrapper = card.querySelector('.flip-card-wrapper');
+                    if (!wrapper) return;
+
+                    wrapper.querySelectorAll('.flip-top').forEach(el => el.remove());
+                    wrapper.querySelectorAll('.flip-bottom').forEach(el => el.remove());
+                });
+
+                // 【新增】更新倒计时和正计时
+                if (currentView === 'countdown') {
+                    updateCountdownDisplay();
+                }
+                if (currentView === 'stopwatch') {
+                    updateStopwatchDisplay();
+                }
+
+                updateClock();
+                wasHidden = false;
+            }
+        });
+
+        function updateDigit(id, newValue) {
+            const card = document.getElementById(id);
+            const topNum = card.querySelector('.card-top-num');
+            const bottomNum = card.querySelector('.card-bottom-num');
+
+            if (!(id in logicalValues)) {
+                logicalValues[id] = topNum.textContent;
+            }
+
+            if (logicalValues[id] === newValue) return;
+
+            // ========= 同步 / 刷新时：禁止翻页 =========
+            if (suppressFlipOnce) {
+                logicalValues[id] = newValue;
+
+                const card = document.getElementById(id);
+                if (card) {
+                    card.querySelector('.card-top-num').textContent = newValue;
+                    card.querySelector('.card-bottom-num').textContent = newValue;
+                }
+
+                return;
+            }
+
+
+            if (card.classList.contains('flipping')) {
+                if (pendingTimeouts[id]) {
+                    clearTimeout(pendingTimeouts[id]);
+                    delete pendingTimeouts[id];
+                }
+
+                const wrapper = card.querySelector('.flip-card-wrapper');
+                // 清理所有翻页元素（可能有多个残留）
+                const flipTops = wrapper.querySelectorAll('.flip-top');
+                const flipBottoms = wrapper.querySelectorAll('.flip-bottom');
+
+                flipTops.forEach(el => el.remove());
+                flipBottoms.forEach(el => el.remove());
+
+                const interruptedTarget = logicalValues[id];
+                topNum.textContent = interruptedTarget;
+                bottomNum.textContent = interruptedTarget;
+
+                card.classList.remove('flipping');
+            }
+
+            logicalValues[id] = newValue;
+            executeFlip(id, newValue);
+        }
+
+        function executeFlip(id, newValue) {
+            const card = document.getElementById(id);
+            const wrapper = card.querySelector('.flip-card-wrapper');
+            const topNum = card.querySelector('.card-top-num');
+            const bottomNum = card.querySelector('.card-bottom-num');
+
+            const oldValue = topNum.textContent;
+
+            if (oldValue === newValue) {
+                return;
+            }
+
+            // 保险性清理：执行新动画前确保没有残留的翻页元素
+            const existingFlipTops = wrapper.querySelectorAll('.flip-top');
+            const existingFlipBottoms = wrapper.querySelectorAll('.flip-bottom');
+            existingFlipTops.forEach(el => el.remove());
+            existingFlipBottoms.forEach(el => el.remove());
+
+            topNum.textContent = newValue;
+
+            const flipTop = document.createElement('div');
+            flipTop.className = 'flip-top';
+            flipTop.innerHTML = `<div class="flip-top-num">${oldValue}</div>`;
+
+            const flipBottom = document.createElement('div');
+            flipBottom.className = 'flip-bottom';
+            flipBottom.innerHTML = `<div class="flip-bottom-num">${newValue}</div>`;
+
+            wrapper.appendChild(flipTop);
+            wrapper.appendChild(flipBottom);
+
+            requestAnimationFrame(() => {
+                card.classList.add('flipping');
+            });
+
+            const timeoutId = setTimeout(() => {
+                bottomNum.textContent = newValue;
+                card.classList.remove('flipping');
+                if (flipTop.parentNode) flipTop.remove();
+                if (flipBottom.parentNode) flipBottom.remove();
+                delete pendingTimeouts[id];
+            }, 1000);
+
+            pendingTimeouts[id] = timeoutId;
+        }
+
+        function setCardStatic(card, value) {
+            card.classList.remove('flipping');
+
+            card.querySelectorAll('.flip-top, .flip-bottom').forEach(el => {
+                el.textContent = value;
+                el.style.animation = 'none';
+                el.offsetHeight; // 强制 reflow
+                el.style.animation = '';
+            });
+
+            card.dataset.value = value;
+        }
+
+
+        function updateClock() {
+            const now = getNow();
+            let hoursStr;
+            let ampm = '';
+            if (is24Hour) {
+                hoursStr = String(now.getHours()).padStart(2, '0');
+            } else {
+                let h = now.getHours() % 12 || 12;
+                hoursStr = String(h).padStart(2, '0');
+                ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+            }
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            updateDigit('hour1', hoursStr[0]);
+            updateDigit('hour2', hoursStr[1]);
+            updateDigit('minute1', minutes[0]);
+            updateDigit('minute2', minutes[1]);
+            updateDigit('second1', seconds[0]);
+            updateDigit('second2', seconds[1]);
+
+            // ========== AM/PM动画管理 ==========
+            const ampmElement = document.getElementById('ampm');
+            const currentAmpm = ampmElement.textContent;
+
+            // 初始化标志（仅第一次）
+            if (!window.ampmInitialized) {
+                window.ampmInitialized = true;
+                ampmElement.textContent = ampm;
+                if (ampm === '') {
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                } else {
+                    ampmElement.style.opacity = '1';
+                    ampmElement.style.transform = 'translateY(0)';
+                }
+                return;
+            }
+
+            // 清除之前的动画超时
+            if (window.ampmTimeout) {
+                clearTimeout(window.ampmTimeout);
+                window.ampmTimeout = null;
+            }
+
+            if (currentAmpm !== ampm) {
+                if (ampm === '') {
+                    // 切换到24小时制，隐藏AM/PM
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                    window.ampmTimeout = setTimeout(() => {
+                        ampmElement.textContent = '';
+                        ampmElement.style.opacity = '0';
+                        ampmElement.style.transform = 'translateY(-10px)';
+                    }, 700);
+                } else if (currentAmpm === '') {
+                    // 从24小时制切换到12小时制，显示AM/PM
+                    ampmElement.textContent = ampm;
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                    // 强制重绘
+                    void ampmElement.offsetHeight;
+                    // 下一帧开始动画
+                    requestAnimationFrame(() => {
+                        ampmElement.style.opacity = '1';
+                        ampmElement.style.transform = 'translateY(0)';
+                    });
+                } else {
+                    // AM和PM之间切换
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+
+                    window.ampmTimeout = setTimeout(() => {
+                        ampmElement.textContent = ampm;
+                        // 强制重绘
+                        void ampmElement.offsetHeight;
+                        requestAnimationFrame(() => {
+                            ampmElement.style.opacity = '1';
+                            ampmElement.style.transform = 'translateY(0)';
+                        });
+                    }, 700);
+                }
+            } else if (ampm !== '' && ampmElement.style.opacity !== '1') {
+                // 确保AM/PM在应该显示的时候是可见的（处理初始化或被打断的情况）
+                ampmElement.textContent = ampm;
+                ampmElement.style.opacity = '1';
+                ampmElement.style.transform = 'translateY(0)';
+            }
+        }
+
+        function positionAmPm() {
+            const hourGroup = document.getElementById('hourGroup');
+            const ampmGroup = document.getElementById('ampmGroup');
+            const hourLeft = hourGroup.offsetLeft;
+            const hourWidth = hourGroup.offsetWidth;
+            const ampmWidth = ampmGroup.offsetWidth;
+            ampmGroup.style.left = (hourLeft + hourWidth / 2 - ampmWidth / 2) + 'px';
+        }
+
+        // 响应式缩放函数
+        function updateClockScale() {
+            const clockContainers = document.querySelectorAll('.clock-container');
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // 时钟的基准尺寸
+            const baseWidth = 900;
+            const baseHeight = 450;
+
+            // 留出边距
+            const marginX = 200;
+            const marginY = 250;
+
+            // 计算缩放比例
+            const scaleX = (viewportWidth - marginX) / baseWidth;
+            const scaleY = (viewportHeight - marginY) / baseHeight;
+
+            // 取较小值并限制范围
+            let scale = Math.min(scaleX, scaleY);
+            scale = Math.max(0.4, Math.min(scale, 1.8));
+
+            // 应用到所有时钟容器
+            clockContainers.forEach(container => {
+                container.style.transform = `scale(${scale})`;
+            });
+        }
+
+        async function syncTime() {
+            try {
+                // 先获取网络时间
+                const networkTime = await fetchNetworkTime();
+                // 立即获取本地时间
+                const localTime = Date.now();
+
+                // 使用新的时间轴系统进行校准
+                await waitForAnimationSafety();
+
+                // 在校准前立即获取当前时间，避免时间偏差
+                calibrateTime({ localTime, networkTime });
+
+                const timeDiff = networkTime - localTime;
+
+                // 【状态层】更新系统状态：最近一次同步的时间差
+                lastTimeDiff = timeDiff;
+                lastSyncTime = new Date(); // 记录同步时间
+
+                updateSyncStatus('success', `已同步 (${timeDiff > 0 ? '+' : ''}${Math.round(timeDiff)}ms)`);
+                console.log('时间同步成功，时间差:', Math.round(timeDiff), 'ms');
+
+                // 初始同步后也要强制静态对齐
+                suppressFlipOnce = true;
+                updateClock();
+                requestAnimationFrame(() => {
+                    suppressFlipOnce = false;
+                });
+
+                // 更新信息面板
+                updateInfoPanel();
+            } catch (e) {
+                console.error('时间同步失败:', e);
+                updateSyncStatus('error', '同步失败');
+            }
+        }
+
+        // 初始化时间轴系统
+        initTimeSystem();
+
+        updateClock();
+        positionAmPm();
+        updateClockScale();
+        window.addEventListener('resize', () => {
+            positionAmPm();
+            updateClockScale();
+        });
+
+        // 初始同步
+        syncTime();
+
+        // 每秒检查是否需要自动校准
+        setInterval(checkAutoCalibration, 1000);
+
+        // 时钟更新
+        setInterval(updateClock, 1000);
+
+        // 定期更新信息面板（每秒）
+        setInterval(updateInfoPanel, 1000);
+
+        // ========== 右下角设置面板功能 ==========
+        const settingsFab = document.getElementById('settingsFab');
+        const settingsPop = document.getElementById('settingsPop');
+        const closeSettingsPop = document.getElementById('closeSettingsPop');
+        const starCountInput = document.getElementById('starCountInput');
+        const timeOffsetInput = document.getElementById('timeOffsetInput');
+
+        // 初始化输入框值
+        starCountInput.value = currentStarCount;
+        timeOffsetInput.value = 0;
+
+        // 打开/关闭设置面板
+        settingsFab.onclick = () => {
+            settingsPop.classList.toggle('open');
+        };
+
+        closeSettingsPop.onclick = () => {
+            settingsPop.classList.remove('open');
+        };
+
+        // 点击外部关闭面板
+        document.addEventListener('click', e => {
+            if (!settingsPop.contains(e.target) && !settingsFab.contains(e.target)) {
+                settingsPop.classList.remove('open');
+            }
+        });
+
+        // 星星数量调整
+        starCountInput.addEventListener('change', (e) => {
+            const newCount = parseInt(e.target.value) || 0;
+            const validCount = Math.max(0, Math.min(500, newCount));
+            starCountInput.value = validCount;
+            createStars(validCount);
+        });
+
+        // 时间偏移调整
+        timeOffsetInput.addEventListener('change', (e) => {
+            const offsetHours = parseFloat(e.target.value) || 0;
+            manualTimeOffset = offsetHours * 3600000; // 转换为毫秒
+            updateClock(); // 立即更新时钟显示
+        });
+
+        // ========== 导航栏功能 ==========
+        let currentView = 'clock';
+
+        function initNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            const navTracker = document.getElementById('navTracker');
+            const navHoverTracker = document.getElementById('navHoverTracker');
+
+            function updateTracker() {
+                const activeItem = document.querySelector('input[name="view-option"]:checked').nextElementSibling;
+                if (activeItem) {
+                    navTracker.style.width = activeItem.offsetWidth + 'px';
+                    navTracker.style.left = activeItem.offsetLeft + 'px';
+                }
+            }
+
+            updateTracker();
+            window.addEventListener('resize', updateTracker);
+
+            navItems.forEach((item) => {
+                item.addEventListener('click', function() {
+                    setTimeout(updateTracker, 10);
+                    const viewId = this.getAttribute('for').replace('view-', '');
+                    switchView(viewId);
+                });
+
+                item.addEventListener('mouseenter', function() {
+                    navHoverTracker.style.width = this.offsetWidth + 'px';
+                    navHoverTracker.style.left = this.offsetLeft + 'px';
+                    navHoverTracker.style.opacity = '1';
+                });
+
+                item.addEventListener('mouseleave', function() {
+                    navHoverTracker.style.opacity = '0';
+                });
+            });
+        }
+
+        function switchView(viewName) {
+            if (currentView === viewName) return;
+
+            const views = document.querySelectorAll('.view-wrapper');
+            currentView = viewName;
+
+            views.forEach(view => {
+                view.classList.remove('active');
+            });
+
+            setTimeout(() => {
+                document.getElementById(viewName + 'View').classList.add('active');
+            }, 50);
+
+            // 显示/隐藏控制按钮
+            const countdownControls = document.getElementById('countdownControls');
+            const stopwatchControls = document.getElementById('stopwatchControls');
+
+            countdownControls.classList.remove('show');
+            stopwatchControls.classList.remove('show');
+
+            setTimeout(() => {
+                if (viewName === 'countdown') {
+                    countdownControls.classList.add('show');
+                } else if (viewName === 'stopwatch') {
+                    stopwatchControls.classList.add('show');
+                }
+            }, 300);
+
+            // 控制设置面板选项显示
+            const timeOffsetSetting = document.getElementById('timeOffsetSetting');
+            const quickTimerSetting = document.getElementById('quickTimerSetting');
+
+            if (viewName === 'clock') {
+                // 时钟界面：显示时间偏移，隐藏快捷计时
+                timeOffsetSetting.style.display = 'block';
+                quickTimerSetting.style.display = 'none';
+            } else if (viewName === 'countdown') {
+                // 倒计时界面：隐藏时间偏移，显示快捷计时
+                timeOffsetSetting.style.display = 'none';
+                quickTimerSetting.style.display = 'block';
+            } else if (viewName === 'stopwatch') {
+                // 正计时界面：隐藏时间偏移和快捷计时
+                timeOffsetSetting.style.display = 'none';
+                quickTimerSetting.style.display = 'none';
+            }
+
+            // 【修改】不再停止计时器,让它们在后台继续运行
+            // 原来的代码会在切换视图时暂停计时器,现在注释掉
+            // if (viewName !== 'countdown') {
+            //     pauseCountdown();
+            // }
+            // if (viewName !== 'stopwatch') {
+            //     pauseStopwatch();
+            // }
+        }
+
+        // ========== 倒计时功能 ==========
+        let countdownTotal = 0;
+        let countdownRemaining = 0;
+        let countdownInterval = null;
+        let countdownRunning = false;
+
+        function startCountdown() {
+            const hours = parseInt(document.getElementById('cdHours').value) || 0;
+            const minutes = parseInt(document.getElementById('cdMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('cdSeconds').value) || 0;
+
+            if (!countdownRunning) {
+                countdownTotal = hours * 3600 + minutes * 60 + seconds;
+                countdownRemaining = countdownTotal;
+            }
+
+            if (countdownRemaining <= 0) return;
+
+            countdownRunning = true;
+            document.getElementById('cdStart').style.display = 'none';
+            document.getElementById('cdPause').style.display = 'block';
+
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            countdownInterval = setInterval(() => {
+                countdownRemaining--;
+                updateCountdownDisplay();
+
+                if (countdownRemaining <= 0) {
+                    pauseCountdown();
+                    showNotification();
+                    countdownRunning = false;
+                }
+            }, 1000);
+        }
+
+        function pauseCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('cdStart').style.display = 'block';
+            document.getElementById('cdPause').style.display = 'none';
+        }
+
+        function resetCountdown() {
+            pauseCountdown();
+            countdownRemaining = 0;
+            countdownRunning = false;
+            document.getElementById('cdHours').value = 0;
+            document.getElementById('cdMinutes').value = 0;
+            document.getElementById('cdSeconds').value = 0;
+            updateCountdownDisplay();
+        }
+
+        function updateCountdownDisplay() {
+            const hours = Math.floor(countdownRemaining / 3600);
+            const minutes = Math.floor((countdownRemaining % 3600) / 60);
+            const seconds = countdownRemaining % 60;
+
+            const hoursStr = String(hours).padStart(2, '0');
+            const minutesStr = String(minutes).padStart(2, '0');
+            const secondsStr = String(seconds).padStart(2, '0');
+
+            updateDigit('cd-hour1', hoursStr[0]);
+            updateDigit('cd-hour2', hoursStr[1]);
+            updateDigit('cd-minute1', minutesStr[0]);
+            updateDigit('cd-minute2', minutesStr[1]);
+            updateDigit('cd-second1', secondsStr[0]);
+            updateDigit('cd-second2', secondsStr[1]);
+        }
+
+        // ========== 正计时功能 ==========
+        let stopwatchTime = 0;
+        let stopwatchInterval = null;
+        let stopwatchRunning = false;
+
+        function startStopwatch() {
+            stopwatchRunning = true;
+            document.getElementById('swStart').style.display = 'none';
+            document.getElementById('swPause').style.display = 'block';
+
+            if (stopwatchInterval) {
+                clearInterval(stopwatchInterval);
+            }
+
+            stopwatchInterval = setInterval(() => {
+                stopwatchTime++;
+                updateStopwatchDisplay();
+            }, 1000);
+        }
+
+        function pauseStopwatch() {
+            if (stopwatchInterval) {
+                clearInterval(stopwatchInterval);
+                stopwatchInterval = null;
+            }
+            document.getElementById('swStart').style.display = 'block';
+            document.getElementById('swPause').style.display = 'none';
+        }
+
+        function resetStopwatch() {
+            pauseStopwatch();
+            stopwatchTime = 0;
+            stopwatchRunning = false;
+            updateStopwatchDisplay();
+        }
+
+        function updateStopwatchDisplay() {
+            const hours = Math.floor(stopwatchTime / 3600);
+            const minutes = Math.floor((stopwatchTime % 3600) / 60);
+            const seconds = stopwatchTime % 60;
+
+            const hoursStr = String(hours).padStart(2, '0');
+            const minutesStr = String(minutes).padStart(2, '0');
+            const secondsStr = String(seconds).padStart(2, '0');
+
+            updateDigit('sw-hour1', hoursStr[0]);
+            updateDigit('sw-hour2', hoursStr[1]);
+            updateDigit('sw-minute1', minutesStr[0]);
+            updateDigit('sw-minute2', minutesStr[1]);
+            updateDigit('sw-second1', secondsStr[0]);
+            updateDigit('sw-second2', secondsStr[1]);
+        }
+
+        // ========== 通知功能 ==========
+        function showNotification() {
+            const notification = document.getElementById('notification');
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // ========== 初始化导航和计时器显示 ==========
+        initNavigation();
+        updateCountdownDisplay();
+        updateStopwatchDisplay();
+
+        // ========== 事件监听 ==========
+        document.getElementById('cdStart').onclick = startCountdown;
+        document.getElementById('cdPause').onclick = pauseCountdown;
+        document.getElementById('cdReset').onclick = resetCountdown;
+
+        document.getElementById('swStart').onclick = startStopwatch;
+        document.getElementById('swPause').onclick = pauseStopwatch;
+        document.getElementById('swReset').onclick = resetStopwatch;
+
+        // 输入限制
+        ['cdHours', 'cdMinutes', 'cdSeconds'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                if (isNaN(value) || value < 0) e.target.value = 0;
+                if (id === 'cdHours' && value > 99) e.target.value = 99;
+                if ((id === 'cdMinutes' || id === 'cdSeconds') && value > 59) e.target.value = 59;
+            });
+        });
+
+        // 快捷计时按钮事件
+        document.querySelectorAll('.quick-timer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const minutes = parseInt(btn.getAttribute('data-minutes'));
+                document.getElementById('cdHours').value = 0;
+                document.getElementById('cdMinutes').value = minutes;
+                document.getElementById('cdSeconds').value = 0;
+
+                // 视觉反馈
+                btn.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    btn.style.transform = '';
+                }, 100);
+            });
+        });
+
+        // ========== 时间同步功能 ==========
+        let lastSyncTime = null;
+        let lastTimeDiff = null; // 系统状态：最近一次同步得到的时间差（ms）
+        let syncStatus = 'pending';
+        let lastClickTime = 0;
+        const SYNC_CLICK_COOLDOWN = 5000; // 5秒冷却时间
+
+        // 更新同步状态显示
+        function updateSyncStatus(status, message) {
+            const syncIndicator = document.getElementById('syncIndicator');
+            const syncText = document.getElementById('syncText');
+
+            syncStatus = status;
+            syncText.textContent = message;
+
+            syncIndicator.className = 'sync-indicator';
+            if (status === 'success') {
+                syncIndicator.classList.add('sync-success');
+            } else if (status === 'error') {
+                syncIndicator.classList.add('sync-error');
+            } else {
+                syncIndicator.classList.add('sync-pending');
+            }
+        }
+
+        // 更新信息面板
+        function updateInfoPanel() {
+            const localTime = new Date(Date.now());
+            const logicTime = TimeSystem.baseLogicTime + (Date.now() - TimeSystem.baseLocalTime);
+            const networkTime = new Date(logicTime);
+            const clockTime = new Date(getNow()); // 时钟时间（包含手动偏移）
+
+            // 【状态层】从系统状态读取时间差，而不是临时计算
+            const timeDiffStr = lastTimeDiff !== null
+                ? ((lastTimeDiff > 0 ? '+' : '') + Math.round(lastTimeDiff) + ' ms')
+                : '-- ms';
+
+            const lastSyncStr = lastSyncTime ? lastSyncTime.toLocaleString() : '从未同步';
+
+            // 计算下次自动校准倒计时
+            const timeSinceLastCalibrate = Date.now() - TimeSystem.lastCalibrateAt;
+            const timeUntilNextCalibrate = Math.max(0, TimeSystem.AUTO_INTERVAL - timeSinceLastCalibrate);
+            const minutes = Math.floor(timeUntilNextCalibrate / 60000);
+            const seconds = Math.floor((timeUntilNextCalibrate % 60000) / 1000);
+
+            document.getElementById('localTime').textContent =
+                localTime.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('networkTime').textContent =
+                networkTime.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('clockTime').textContent =
+                clockTime.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('timeDiff').textContent = timeDiffStr;
+            document.getElementById('lastSyncTime').textContent = lastSyncStr;
+            document.getElementById('nextSyncIn').textContent =
+                `下次校准: ${minutes}分${seconds}秒后`;
+        }
+
+        // 核心同步函数（用于手动同步按钮）
+        async function doSyncTime() {
+            updateSyncStatus('pending', '正在同步时间...');
+
+            try {
+                // 先获取网络时间
+                const networkTime = await fetchNetworkTime();
+                // 立即获取本地时间，减少时间差
+                const localTime = Date.now();
+
+                // 等待动画安全点
+                await waitForAnimationSafety();
+
+                // 在校准前再次获取当前时间，用于计算延迟
+                const nowBeforeCalibrate = Date.now();
+                const elapsedSinceFetch = nowBeforeCalibrate - localTime;
+
+                // 使用新的校准系统，传入获取时的时间戳(手动同步重置倒计时)
+                calibrateTime({ localTime, networkTime }, true);
+
+                lastSyncTime = new Date();
+                // ★ 修复：同步后不吞掉下一次翻页
+                delete logicalValues['second1'];
+                delete logicalValues['second2'];
+
+                // 计算实际的时间差（网络时间 - 本地时间）
+                const actualTimeDiff = networkTime - localTime;
+
+                // 【状态层】更新系统状态：最近一次同步的时间差
+                lastTimeDiff = actualTimeDiff;
+
+                updateSyncStatus('success', `已同步 (${actualTimeDiff > 0 ? '+' : ''}${Math.round(actualTimeDiff)}ms)`);
+                console.log('手动同步成功，网络时间差:', Math.round(actualTimeDiff), 'ms, 处理延迟:', Math.round(elapsedSinceFetch), 'ms');
+
+                // ===== 同步完成后：强制静态对齐一次 =====
+                suppressFlipOnce = true;
+                updateClock();
+                requestAnimationFrame(() => {
+                    suppressFlipOnce = false;
+                });
+
+                // 立即更新信息面板显示时间差
+                updateInfoPanel();
+
+                return true;
+            } catch (e) {
+                console.error('时间同步失败:', e);
+                updateSyncStatus('error', '同步失败');
+                return false;
+            }
+        }
+
+        // 检查是否有翻页动画正在进行
+        function isAnyFlipping() {
+            const cards = ['hour1', 'hour2', 'minute1', 'minute2', 'second1', 'second2'];
+            return cards.some(id => {
+                const card = document.getElementById(id);
+                return card && card.classList.contains('flipping');
+            });
+        }
+
+
+
+
+        // 重新加载时钟函数（刷新按钮）
+        function reloadClock() {
+            // 【修改】根据当前视图执行不同的刷新操作
+            if (currentView === 'clock') {
+                // 时钟视图：只更新时间基准(不重置校准倒计时)
+                const now = Date.now();
+                calibrateTime({
+                    localTime: now,
+                    networkTime: null
+                }, false);
+
+                // 刷新后强制静态对齐一次
+                suppressFlipOnce = true;
+                //updateClock();
+                // ★ 修复：清除秒位的逻辑缓存，保证下一秒一定翻页
+                delete logicalValues.second1;
+                delete logicalValues.second2;
+                requestAnimationFrame(() => {
+                    suppressFlipOnce = false;
+                });
+
+                // 更新信息面板
+                updateInfoPanel();
+            } else if (currentView === 'countdown') {
+                // 【新增】倒计时视图：重新载入倒计时显示
+                suppressFlipOnce = true;
+                updateCountdownDisplay();
+                requestAnimationFrame(() => {
+                    suppressFlipOnce = false;
+                });
+            } else if (currentView === 'stopwatch') {
+                // 【新增】正计时视图：重新载入正计时显示
+                suppressFlipOnce = true;
+                updateStopwatchDisplay();
+                requestAnimationFrame(() => {
+                    suppressFlipOnce = false;
+                });
+            }
+        }
+
+
+
+        // 手动点击同步
+        function manualSync() {
+            const now = Date.now();
+            if (now - lastClickTime < SYNC_CLICK_COOLDOWN) {
+                // 显示冷却提示
+                showCooldownNotification();
+                return;
+            }
+
+            lastClickTime = now;
+
+            // 执行同步
+            doSyncTime().then(success => {
+                updateInfoPanel();
+                if (success) {
+                    console.log('手动同步成功');
+                }
+            });
+        }
+
+        // 显示冷却提示
+        function showCooldownNotification() {
+            const notification = document.getElementById('notification');
+            const originalText = notification.textContent;
+
+            // 先移除show类,确保动画能够重新触发
+            notification.classList.remove('show');
+
+            // 使用setTimeout确保DOM更新
+            setTimeout(() => {
+                notification.textContent = '请稍后再获取';
+                notification.classList.add('show');
+
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        notification.textContent = originalText;
+                    }, 300);
+                }, 2000);
+            }, 50);
+        }
+
+        // 同步状态栏和信息面板交互
+        const syncStatusEl = document.getElementById('syncStatus');
+        const infoPanelEl = document.getElementById('infoPanel');
+
+        syncStatusEl.addEventListener('mouseenter', () => {
+            // 鼠标悬停时立即更新信息面板
+            updateInfoPanel();
+            infoPanelEl.classList.add('show');
+        });
+
+        syncStatusEl.addEventListener('mouseleave', () => {
+            infoPanelEl.classList.remove('show');
+        });
+
+        infoPanelEl.addEventListener('mouseenter', () => {
+            // 鼠标悬停时立即更新信息面板
+            updateInfoPanel();
+            infoPanelEl.classList.add('show');
+        });
+
+        infoPanelEl.addEventListener('mouseleave', () => {
+            infoPanelEl.classList.remove('show');
+        });
+
+        syncStatusEl.addEventListener('click', manualSync);
+
+        // 重新加载时钟按钮 - 简单防抖
+        let isReloading = false;
+        const reloadButton = document.getElementById('reloadButton');
+
+        reloadButton.addEventListener('click', () => {
+            // 防止快速重复点击
+            if (isReloading) return;
+
+            isReloading = true;
+
+            // 添加旋转动画
+            reloadButton.classList.add('reloading');
+
+            // 执行重新加载时钟
+            reloadClock();
+
+            // 动画结束后恢复状态
+            setTimeout(() => {
+                reloadButton.classList.remove('reloading');
+                isReloading = false;
+            }, 600);
+        });
+
+        // 初始化手动同步（可选）
+        // 页面加载时不强制同步，依靠自动校准机制
+
+        // 每秒更新信息面板
+        setInterval(updateInfoPanel, 1000);
+
+        // ========== 响应式窗口大小监听 ==========
+        function checkWindowSize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // 小于661 x 364时，仅在上次是自动控制时才自动关闭显示控件开关
+            if (width < 661 || height < 364) {
+                if (showControlsEnabled && lastControlSource === 'auto') {
+                    // 只有在上次是自动控制的情况下才自动关闭
+                    showControlsEnabled = false;
+                    showControlsToggleSwitch.classList.remove('active');
+                    document.body.classList.add('controls-hidden');
+                } else if (showControlsEnabled && lastControlSource === 'user') {
+                    // 如果是用户手动打开的，需要在首次进入小尺寸时关闭
+                    // 但标记为自动控制，以便后续能自动恢复
+                    showControlsEnabled = false;
+                    showControlsToggleSwitch.classList.remove('active');
+                    document.body.classList.add('controls-hidden');
+                    lastControlSource = 'auto';
+                }
+            } else {
+                // 恢复显示控件开关 - 仅在上次是自动控制时
+                if (!showControlsEnabled && lastControlSource === 'auto') {
+                    showControlsEnabled = true;
+                    showControlsToggleSwitch.classList.add('active');
+                    document.body.classList.remove('controls-hidden');
+                }
+            }
+
+            // 小于500 x 218时，隐藏显示控件开关本身
+            if (width < 500 || height < 218) {
+                document.body.classList.add('ultra-small');
+            } else {
+                document.body.classList.remove('ultra-small');
+            }
+        }
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', checkWindowSize);
+
+        // 初始检查
+        checkWindowSize();
+    </script>
+</body>
+</html>

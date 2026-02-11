@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时钟主题效果提取</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode {
+            background: #ffffff;
+        }
+
+        /* ================= 星星效果样式 ================= */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            transition: opacity 0.7s ease, visibility 0s 0.7s;
+        }
+
+        body:not(.no-stars) .stars {
+            transition: opacity 0.7s ease, visibility 0s 0s;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: twinkle linear infinite;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode .star {
+            background: #000;
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+        }
+
+        body.no-stars .stars {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+    </style>
+</head>
+<body class="day-mode">
+    
+    <!-- 星星容器 -->
+    <div class="stars" id="starsContainer"></div>
+
+
+    <script>
+        // ========== 星星生成逻辑 ==========
+        let currentStarCount = 100; // 默认星星数量
+
+        function createStars(count = currentStarCount) {
+            const starsContainer = document.getElementById('starsContainer');
+            starsContainer.innerHTML = ''; // 清空现有星星
+            currentStarCount = count;
+
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+
+                const duration = Math.random() * 3 + 2;
+                star.style.animationDuration = duration + 's';
+
+                const delay = Math.random() * 5;
+                star.style.animationDelay = delay + 's';
+
+                starsContainer.appendChild(star);
+            }
+        }
+
+        // 初始化星星
+        createStars();
+
+        // ========== API 函数 ==========
+        
+        /**
+         * 昼夜模式切换函数
+         */
+        function toggleDayNightMode() {
+            const body = document.body;
+
+            if (body.classList.contains('day-mode')) {
+                // 当前是白天模式，切换到夜间模式
+                body.classList.remove('day-mode');
+            } else {
+                // 当前是夜间模式，切换到白天模式
+                body.classList.add('day-mode');
+            }
+        }
+
+        /**
+         * 获取当前昼夜模式
+         * @returns {string} - 'day' 或 'night'
+         */
+        function getCurrentDayNightMode() {
+            return document.body.classList.contains('day-mode') ? 'day' : 'night';
+        }
+
+        /**
+         * 星星效果切换函数
+         * @param {boolean} enabled - true 开启，false 关闭
+         */
+        function toggleStarsEffect(enabled) {
+            const body = document.body;
+            
+            if (enabled) {
+                body.classList.remove('no-stars');
+            } else {
+                body.classList.add('no-stars');
+            }
+        }
+
+        /**
+         * 获取当前星星效果状态
+         * @returns {boolean} - true 开启，false 关闭
+         */
+        function isStarsEnabled() {
+            return !document.body.classList.contains('no-stars');
+        }
+
+
+    </script>
+</body>
+</html>

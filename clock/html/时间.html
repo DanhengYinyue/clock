@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时钟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background 0.7s ease;
+        }
+
+        body.day-mode {
+            background: #ffffff;
+        }
+
+
+        /* 时钟主体 */
+        .clock-container {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            transform-origin: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .time-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .separator {
+            font-size: 120px;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.4),
+                         0 0 10px rgba(255, 255, 255, 0.2),
+                         0 0 15px rgba(255, 255, 255, 0.1);
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .separator {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .flip-card {
+            position: relative;
+            width: 120px;
+            height: 180px;
+            perspective: 1000px;
+        }
+
+        .flip-card-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .card-top,
+        .card-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 5px;
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top,
+        body.day-mode .card-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+        }
+
+        .card-top {
+            top: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px 15px 0 0;
+            z-index: 2;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        body.day-mode .card-top {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .card-bottom {
+            bottom: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 15px 15px;
+            z-index: 0;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        body.day-mode .card-bottom {
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .card-top-num,
+        .card-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .card-top-num,
+        body.day-mode .card-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-top-num { top: 0; }
+        .card-bottom-num { top: -90px; }
+
+        .flip-top,
+        .flip-bottom {
+            position: absolute;
+            width: 100%;
+            height: 90px;
+            overflow: hidden;
+            backface-visibility: hidden;
+        }
+
+        .flip-top {
+            top: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 15px 15px 0 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: bottom;
+            z-index: 3;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .flip-bottom {
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 0 0 15px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            transform-origin: top;
+            transform: rotateX(90deg); /* 默认折起，避免插入DOM瞬间闪现 */
+            z-index: 1;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+            transition: background 0.7s ease, box-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-bottom {
+            background: linear-gradient(135deg, #f5f5f5 0%, #f7f7f7 100%);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3),
+                        inset 0 -1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .flip-top-num,
+        .flip-bottom-num {
+            position: absolute;
+            width: 100%;
+            height: 180px;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 105px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            line-height: 180px;
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+        }
+
+        body.day-mode .flip-top-num,
+        body.day-mode .flip-bottom-num {
+            color: #000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .flip-top-num { top: 0; }
+        .flip-bottom-num { top: -90px; }
+
+        .flip-card.flipping .flip-top {
+            animation: flipDown 0.5s ease-in forwards;
+        }
+
+        .flip-card.flipping .flip-bottom {
+            animation: flipUp 0.5s ease-out 0.5s forwards;
+            transform: rotateX(90deg);
+        }
+
+        @keyframes flipDown {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(-90deg); }
+        }
+
+        @keyframes flipUp {
+            0% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0deg); }
+        }
+
+        /* AM/PM 标识 */
+        .ampm-container {
+            position: absolute;
+            top: calc(100% + 50px);
+            text-align: center;
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.6),
+                         0 0 10px rgba(255, 255, 255, 0.4),
+                         0 0 15px rgba(255, 255, 255, 0.2);
+            transition: color 0.7s ease, text-shadow 0.7s ease, opacity 0.7s ease, transform 0.7s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.day-mode .ampm-container {
+            color: rgba(0, 0, 0, 0.7);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #ampm {
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            display: inline-block;
+        }
+
+
+
+        /* 响应式缩放 */
+        @media (max-width: 1600px) { .clock-container { transform: scale(0.95); } }
+        @media (max-width: 1400px) { .clock-container { transform: scale(0.9); } }
+        @media (max-width: 1200px) { .clock-container { transform: scale(0.8); } }
+        @media (max-width: 1000px) { .clock-container { transform: scale(0.72); } }
+        @media (max-width: 900px) { .clock-container { transform: scale(0.65); } }
+        @media (max-width: 750px) { .clock-container { transform: scale(0.58); } }
+        @media (max-width: 600px) { .clock-container { transform: scale(0.5); } }
+        @media (max-width: 500px) { .clock-container { transform: scale(0.45); } }
+        @media (max-width: 400px) { .clock-container { transform: scale(0.4); } }
+    </style>
+</head>
+<body class="twentyfour-mode">
+    
+
+
+    <!-- 时钟主体 -->
+    <div class="clock-container" id="mainClock">
+        <div class="time-group" id="hourGroup">
+            <div class="flip-card" id="hour1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+            <div class="flip-card" id="hour2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-group">
+            <div class="flip-card" id="minute1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+            <div class="flip-card" id="minute2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-group">
+            <div class="flip-card" id="second1">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+            <div class="flip-card" id="second2">
+                <div class="flip-card-wrapper">
+                    <div class="card-top"><div class="card-top-num">0</div></div>
+                    <div class="card-bottom"><div class="card-bottom-num">0</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ampm-container" id="ampmGroup">
+            <div id="ampm"></div>
+        </div>
+    </div>
+
+    <script>
+
+
+        // ========== 昼夜模式切换函数 ==========
+        function toggleDayNightMode() {
+            const body = document.body;
+            if (body.classList.contains('day-mode')) {
+                // 当前是白天模式，切换到夜间模式
+                body.classList.remove('day-mode');
+            } else {
+                // 当前是夜间模式，切换到白天模式
+                body.classList.add('day-mode');
+            }
+        }
+
+        // 获取当前模式
+        function getCurrentDayNightMode() {
+            return document.body.classList.contains('day-mode') ? 'day' : 'night';
+        }
+
+        // 设置特定模式 ('day' 或 'night')
+        function setDayNightMode(mode) {
+            const body = document.body;
+            if (mode === 'day') {
+                body.classList.add('day-mode');
+            } else if (mode === 'night') {
+                body.classList.remove('day-mode');
+            }
+        }
+
+        // ========== 严格状态机版本时钟核心逻辑 ==========
+        
+        /* 全局状态变量 */
+        let pageVisible = true;
+        let flipState = "INIT";
+
+        // 当前显示的6位数字（HHMMSS 或任意6位数字）
+        let lastDisplayDigits = "000000";
+        let flipTargetDigits = null; // 翻页目标（冻结）
+
+        // 事件驱动相关（严格状态机：回调/定时器只投递事件，tick 统一消费并做状态转换）
+        let flippingCount = 0; // 正在翻页的数字计数
+        let flipFinishedEvents = 0; // 翻页动画完成事件计数（回调只投递，tick 统一消费）
+
+        // 外部输入事件队列：定时器每秒投递一次 NEW_VALUE
+        const eventInbox = [];
+
+        // ====== 显示器 API ======
+        // 你可以在外部调用 window.setDisplayValueProvider(fn) 来提供要显示的字符串
+        // fn 可以返回 "12:31:12" / "123112" / "12：31：12" 等；系统会自动抽取前6个数字
+        let displayValueProvider = () => "00:00:00";
+        window.setDisplayValueProvider = (fn) => {
+            if (typeof fn === "function") displayValueProvider = fn;
+        };
+
+        function normalizeTo6Digits(value) {
+            const digits = String(value ?? "").replace(/\D/g, "").slice(0, 6);
+            return digits.padStart(6, "0");
+        }
+
+        async function pollDisplayValueOnce() {
+            try {
+                const v = await Promise.resolve(displayValueProvider());
+                eventInbox.push({ type: "NEW_VALUE", value: v });
+            } catch (err) {
+                console.warn("displayValueProvider error:", err);
+            }
+        }
+
+        
+        /* 工具函数 */
+        function getNow() {
+            return new Date();
+        }
+
+        function formatTime(date) {
+            let h, m, s;
+            if (is24Hour) {
+                h = String(date.getHours()).padStart(2, '0');
+            } else {
+                let hours = date.getHours() % 12 || 12;
+                h = String(hours).padStart(2, '0');
+            }
+            m = String(date.getMinutes()).padStart(2, '0');
+            s = String(date.getSeconds()).padStart(2, '0');
+            return h + m + s;
+        }
+
+        function getAMPM(date) {
+            if (is24Hour) return '';
+            return date.getHours() >= 12 ? 'PM' : 'AM';
+        }
+
+        function setDisplayByString(timeStr) {
+            updateStaticDigit('hour1', timeStr[0]);
+            updateStaticDigit('hour2', timeStr[1]);
+            updateStaticDigit('minute1', timeStr[2]);
+            updateStaticDigit('minute2', timeStr[3]);
+            updateStaticDigit('second1', timeStr[4]);
+            updateStaticDigit('second2', timeStr[5]);
+        }
+
+        function updateStaticDigit(id, value) {
+            const card = document.getElementById(id);
+            card.querySelector('.card-top-num').textContent = value;
+            card.querySelector('.card-bottom-num').textContent = value;
+        }
+
+        /* 翻页片绑定（FLIP_START 唯一调用） - 严格事件驱动版本 */
+        function bindFlipDigit(id, oldValue, newValue, onFinish) {
+            const card = document.getElementById(id);
+            const wrapper = card.querySelector('.flip-card-wrapper');
+            const topNum = card.querySelector('.card-top-num');
+            const bottomNum = card.querySelector('.card-bottom-num');
+            
+            // 1. 静态上层改为新值（动画结束后应露出新数字）
+            topNum.textContent = newValue;
+            
+            // 2. 静态下层保持旧值不变
+            // bottomNum 保持 oldValue 不变
+
+            // 3. 创建翻页动画层
+            const flipTop = document.createElement('div');
+            flipTop.className = 'flip-top';
+            flipTop.innerHTML = `<div class="flip-top-num">${oldValue}</div>`;
+
+            const flipBottom = document.createElement('div');
+            flipBottom.className = 'flip-bottom';
+            flipBottom.innerHTML = `<div class="flip-bottom-num">${newValue}</div>`;
+
+            wrapper.appendChild(flipTop);
+            wrapper.appendChild(flipBottom);
+
+            // 【关键修复】使用 requestAnimationFrame 包装，确保浏览器先完成渲染
+            let ended = false;
+            flipBottom.addEventListener('animationend', () => {
+                if (ended) return;
+                ended = true;
+                
+                // 不要在回调中直接修改状态，用 rAF 延迟到下一帧
+                requestAnimationFrame(() => {
+                    onFinish();
+                });
+            }, { once: true });
+
+            requestAnimationFrame(() => {
+                card.classList.add('flipping');
+            });
+        }
+
+        function cleanupFlip(id, finalValue) {
+            const card = document.getElementById(id);
+            const wrapper = card.querySelector('.flip-card-wrapper');
+            const bottomNum = card.querySelector('.card-bottom-num');
+            
+            // 【关键修复】只更新 bottom，不要更新 top
+            // 因为 top 在 FLIP_START 时就已经改成新值了
+            // 重复更新会触发 repaint 导致闪烁
+            bottomNum.textContent = finalValue;
+
+            // 移除动画层 DOM
+            wrapper.querySelectorAll('.flip-top').forEach(e => e.remove());
+            wrapper.querySelectorAll('.flip-bottom').forEach(e => e.remove());
+
+            // 移除动画状态类
+            card.classList.remove('flipping');
+        }
+
+        /* AM/PM 指示器更新 */
+        function updateAMPMDisplay(ampm) {
+            const ampmElement = document.getElementById('ampm');
+            const currentAmpm = ampmElement.textContent;
+
+            if (!window.ampmInitialized) {
+                window.ampmInitialized = true;
+                ampmElement.textContent = ampm;
+                if (ampm === '') {
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                } else {
+                    ampmElement.style.opacity = '1';
+                    ampmElement.style.transform = 'translateY(0)';
+                }
+                return;
+            }
+
+            if (window.ampmTimeout) { 
+                clearTimeout(window.ampmTimeout); 
+                window.ampmTimeout = null; 
+            }
+
+            if (currentAmpm !== ampm) {
+                if (ampm === '') {
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                    window.ampmTimeout = setTimeout(() => {
+                        ampmElement.textContent = '';
+                        ampmElement.style.opacity = '0';
+                        ampmElement.style.transform = 'translateY(-10px)';
+                    }, 700);
+                } else if (currentAmpm === '') {
+                    ampmElement.textContent = ampm;
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                    void ampmElement.offsetHeight;
+                    requestAnimationFrame(() => {
+                        ampmElement.style.opacity = '1';
+                        ampmElement.style.transform = 'translateY(0)';
+                    });
+                } else {
+                    ampmElement.style.opacity = '0';
+                    ampmElement.style.transform = 'translateY(-10px)';
+                    window.ampmTimeout = setTimeout(() => {
+                        ampmElement.textContent = ampm;
+                        void ampmElement.offsetHeight;
+                        requestAnimationFrame(() => {
+                            ampmElement.style.opacity = '1';
+                            ampmElement.style.transform = 'translateY(0)';
+                        });
+                    }, 700);
+                }
+            } else if (ampm !== '' && ampmElement.style.opacity !== '1') {
+                ampmElement.textContent = ampm;
+                ampmElement.style.opacity = '1';
+                ampmElement.style.transform = 'translateY(0)';
+            }
+        }
+
+        function positionAmPm() {
+            const hourGroup = document.getElementById('hourGroup');
+            const ampmGroup = document.getElementById('ampmGroup');
+            const hourLeft = hourGroup.offsetLeft;
+            const hourWidth = hourGroup.offsetWidth;
+            const ampmWidth = ampmGroup.offsetWidth;
+            ampmGroup.style.left = (hourLeft + hourWidth / 2 - ampmWidth / 2) + 'px';
+        }
+
+        /* 页面可见性监听 */
+        document.addEventListener('visibilitychange', () => {
+            pageVisible = !document.hidden;
+        });
+
+        /* 主状态机 */
+        
+    function tick() {
+            switch (flipState) {
+
+                /* ================= INIT ================= */
+                case "INIT":
+                    lastDisplayDigits = "000000";
+                    setDisplayByString(lastDisplayDigits);
+
+                    // 纯显示器：不显示AM/PM
+                    const ampmEl = document.getElementById('ampm');
+                    if (ampmEl) ampmEl.style.display = 'none';
+
+                    flipState = "STABLE";
+                    break;
+
+                /* ================= STABLE ================= */
+                case "STABLE":
+                    if (!pageVisible) {
+                        flipState = "PAUSED";
+                        break;
+                    }
+
+                    // 消费最新输入事件（保留最后一个，避免堆积）
+                    if (eventInbox.length > 0) {
+                        const lastEvent = eventInbox[eventInbox.length - 1];
+                        eventInbox.length = 0;
+
+                        if (lastEvent && lastEvent.type === "NEW_VALUE") {
+                            const nextDigits = normalizeTo6Digits(lastEvent.value);
+
+                            if (nextDigits !== lastDisplayDigits) {
+                                flipTargetDigits = nextDigits; // 冻结目标
+                                flipState = "FLIP_START";
+                            }
+                        }
+                    }
+                    break;
+
+                /* ================= FLIP_START ================= */
+                case "FLIP_START": {
+                    const lastS = lastDisplayDigits;
+                    const currS = flipTargetDigits ?? lastDisplayDigits;
+
+                    const ids = [
+                        'hour1', 'hour2',
+                        'minute1', 'minute2',
+                        'second1', 'second2'
+                    ];
+
+                    // 重置计数器与事件
+                    flippingCount = 0;
+                    flipFinishedEvents = 0;
+
+                    for (let i = 0; i < ids.length; i++) {
+                        if (lastS[i] !== currS[i]) {
+                            flippingCount++;
+
+                            // 【严格状态机】回调只投递“完成事件”，不修改任何状态变量
+                            bindFlipDigit(ids[i], lastS[i], currS[i], () => {
+                                flipFinishedEvents++;
+                            });
+                        }
+                    }
+
+                    // 如果没有需要翻页的数字，直接同步更新并返回STABLE
+                    if (flippingCount === 0) {
+                        lastDisplayDigits = currS;
+                        flipTargetDigits = null;
+                        setDisplayByString(lastDisplayDigits);
+                        flipState = "STABLE";
+                    } else {
+                        flipState = "FLIPPING";
+                    }
+                    break;
+                }
+
+                /* ================= FLIPPING ================= */
+                case "FLIPPING":
+                    if (!pageVisible) {
+                        flipState = "PAUSED";
+                        break;
+                    }
+
+                    // 【严格状态机】tick 统一消费“完成事件”，并在此处做状态转换
+                    if (flipFinishedEvents > 0) {
+                        flippingCount = Math.max(0, flippingCount - flipFinishedEvents);
+                        flipFinishedEvents = 0;
+                    }
+
+                    if (flippingCount === 0) {
+                        flipState = "FLIP_END";
+                    }
+                    break;
+
+                /* ================= FLIP_END ================= */
+                case "FLIP_END": {
+                    const finalStr = flipTargetDigits ?? lastDisplayDigits;
+
+                    const allIds = [
+                        'hour1', 'hour2',
+                        'minute1', 'minute2',
+                        'second1', 'second2'
+                    ];
+
+                    for (let i = 0; i < allIds.length; i++) {
+                        cleanupFlip(allIds[i], finalStr[i]);
+                    }
+
+                    // 更新 lastDisplayDigits 为冻结目标
+                    lastDisplayDigits = finalStr;
+                    flipTargetDigits = null;
+
+                    flipState = "STABLE";
+                    break;
+                }
+
+                /* ================= PAUSED ================= */
+                case "PAUSED":
+                    if (pageVisible) {
+                        // 清理所有可能正在进行的翻页动画
+                        const cleanupIds = [
+                            'hour1', 'hour2',
+                            'minute1', 'minute2',
+                            'second1', 'second2'
+                        ];
+
+                        cleanupIds.forEach(id => {
+                            const card = document.getElementById(id);
+                            if (card.classList.contains('flipping')) {
+                                const wrapper = card.querySelector('.flip-card-wrapper');
+                                wrapper.querySelectorAll('.flip-top').forEach(e => e.remove());
+                                wrapper.querySelectorAll('.flip-bottom').forEach(e => e.remove());
+                                card.classList.remove('flipping');
+                            }
+                        });
+
+                        // 重置所有计数器和事件
+                        flippingCount = 0;
+                        flipFinishedEvents = 0;
+
+                        // 回到稳定显示（等待下一次外部输入）
+                        setDisplayByString(lastDisplayDigits);
+
+                        flipState = "STABLE";
+                    }
+                    break;
+            }
+
+            requestAnimationFrame(tick);
+        }
+
+        /* 启动状态机（纯显示器：每秒拉取一次外部数据） */
+        pollDisplayValueOnce();                 // 立即拉取一次
+        setInterval(pollDisplayValueOnce, 1000); // 每秒拉取并投递事件
+        requestAnimationFrame(tick);
+
+    </script>
+</body>
+</html>
